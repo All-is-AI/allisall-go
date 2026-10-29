@@ -1,0 +1,25 @@
+version: "2"
+
+# The backend's linter set, without its forbidigo rules: those guard the
+# server's handlers, store and id parsing, none of which exist here.
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - unused
+    - ineffassign
+    - misspell
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Test helpers routinely ignore cleanup errors.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt

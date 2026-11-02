@@ -1,0 +1,46 @@
+# oapi-codegen's configuration. scripts/generate.mjs runs the generator with
+# it, on a copy of the API's OpenAPI document that the script has rewritten,
+# and names the output file itself.
+package: allisall
+generate:
+  models: true
+compatibility:
+  # Every enum constant carries its type's name, such as
+  # CalculationStateDraft, so no constant is a bare word like Draft.
+  always-prefix-enum-values: true
+output-options:
+  # Initialisms in capitals: ID, APIKey, CSV.
+  name-normalizer: ToCamelCaseWithInitialisms
+  additional-initialisms:
+    - CSV
+  # The script has already removed every schema the SDK's operations do not
+  # reach; the generator's own pruning would also remove the request bodies,
+  # which no operation references once the script keeps only each query.
+  skip-prune: true
+  type-mapping:
+    # A plain number is a float64. Money is never one: it is a Decimal.
+    number:
+      default:
+        type: float64
+    string:
+      formats:
+        # Ids and calendar dates are strings.
+        uuid:
+          type: string
+        date:
+          type: string
+  # Written by hand: ImportUpload is the SDK's own, and the rest are kept
+  # from earlier releases or kept internal to the ingest helper.
+  exclude-schemas:
+    - ImportUpload
+    - ErrorCode
+    - FieldErrorCode
+    - EventCategory
+    - EventInput
+    - IngestRowError
+    - Problem
+    - FieldError
+    - EventBatch
+    - IngestResult
+  overlay:
+    path: overlay.yaml

@@ -35,9 +35,14 @@ func userAgent() string {
 //   - a *ConnectionError, when no response arrived within the attempt;
 //   - the caller's context error, when ctx ended;
 //   - a *providerError, when the token provider failed.
-func (c *Client) attempt(ctx context.Context, method, path string, body []byte) (*response, error) {
+//
+// An operation that takes no credential sends no Authorization, and does
+// not call the token provider.
+func (c *Client) attempt(ctx context.Context, p *prepared) (*response, error) {
 	token := c.apiKey
-	if c.tokenProvider != nil {
+	if p.op.access == accessPublic {
+		token = ""
+	} else if c.tokenProvider != nil {
 		t, err := c.tokenProvider(ctx)
 		if err != nil {
 			return nil, &providerError{err: err}
@@ -54,17 +59,35 @@ func (c *Client) attempt(ctx context.Context, method, path string, body []byte) 
 	}
 
 	requestID := newUUID()
-	attemptCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	attemptCtx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(attemptCtx, method, c.baseURL.JoinPath(path).String(), bytes.NewReader(body))
+	var req *http.Request
+	var err error
+	switch {
+	case p.form != nil:
+		req, err = http.NewRequestWithContext(attemptCtx, p.op.method, p.url, nil)
+		if err == nil {
+			err = p.form.attach(req)
+		}
+	case p.op.body != bodyNone:
+		// A *bytes.Reader gives the request its length, and lets net/http
+		// send the same bytes again on its own.
+		req, err = http.NewRequestWithContext(attemptCtx, p.op.method, p.url, bytes.NewReader(p.body))
+	default:
+		req, err = http.NewRequestWithContext(attemptCtx, p.op.method, p.url, nil)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("allisall: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header = p.header.Clone()
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if p.contentType != "" {
+		req.Header.Set("Content-Type", p.contentType)
+	}
 	req.Header.Set("X-Request-Id", requestID)
-	req.Header.Set("User-Agent", c.userAgent)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

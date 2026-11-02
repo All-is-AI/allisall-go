@@ -51,11 +51,11 @@ func TestIngestSplitsAt500Events(t *testing.T) {
 	}
 }
 
-// Five events whose single batch is exactly 5,000,000 bytes:
-// 13 + 4×999,997 + 999,995 + 4 commas.
+// Five events whose single batch is exactly 4,000,000 bytes:
+// 13 + 4×799,997 + 799,995 + 4 commas.
 func exactLimitEvents(t *testing.T) []EventInput {
 	t.Helper()
-	sizes := []int{999_997, 999_997, 999_997, 999_997, 999_995}
+	sizes := []int{799_997, 799_997, 799_997, 799_997, 799_995}
 	events := make([]EventInput, len(sizes))
 	for i, s := range sizes {
 		events[i] = sizedEvent(t, id(i), s, "")
@@ -64,7 +64,7 @@ func exactLimitEvents(t *testing.T) []EventInput {
 }
 
 func TestIngestSplitsAtTheBodyLimit(t *testing.T) {
-	t.Run("exactly 5,000,000 bytes is one batch", func(t *testing.T) {
+	t.Run("exactly 4,000,000 bytes is one batch", func(t *testing.T) {
 		h := newHarness(t, nil)
 		if _, err := h.client.Events.Ingest(context.Background(), exactLimitEvents(t)); err != nil {
 			t.Fatalf("Ingest: %v", err)
@@ -72,13 +72,13 @@ func TestIngestSplitsAtTheBodyLimit(t *testing.T) {
 		if h.transport.count() != 1 {
 			t.Fatalf("sent %d requests, want 1", h.transport.count())
 		}
-		if got := len(h.transport.get(0).body); got != 5_000_000 {
-			t.Errorf("body is %d bytes, want 5,000,000", got)
+		if got := len(h.transport.get(0).body); got != 4_000_000 {
+			t.Errorf("body is %d bytes, want 4,000,000", got)
 		}
 	})
 	t.Run("one more byte splits before the event that crosses", func(t *testing.T) {
 		events := exactLimitEvents(t)
-		events[2] = sizedEvent(t, id(2), 999_998, "")
+		events[2] = sizedEvent(t, id(2), 799_998, "")
 		h := newHarness(t, nil)
 		if _, err := h.client.Events.Ingest(context.Background(), events); err != nil {
 			t.Fatalf("Ingest: %v", err)
@@ -90,31 +90,31 @@ func TestIngestSplitsAtTheBodyLimit(t *testing.T) {
 		if n, _ := countEvents(first); n != 4 {
 			t.Errorf("first batch has %d events, want 4", n)
 		}
-		if want := 13 + 3*999_997 + 999_998 + 3; len(first) != want {
+		if want := 13 + 3*799_997 + 799_998 + 3; len(first) != want {
 			t.Errorf("first body is %d bytes, want %d", len(first), want)
 		}
-		if want := 13 + 999_995; len(second) != want {
+		if want := 13 + 799_995; len(second) != want {
 			t.Errorf("second body is %d bytes, want %d", len(second), want)
 		}
 	})
 }
 
 func TestIngestEventTooLargeToSend(t *testing.T) {
-	t.Run("4,999,987 bytes is sent alone", func(t *testing.T) {
+	t.Run("3,999,987 bytes is sent alone", func(t *testing.T) {
 		h := newHarness(t, nil)
-		summary, err := h.client.Events.Ingest(context.Background(), []EventInput{sizedEvent(t, id(0), 4_999_987, "")})
+		summary, err := h.client.Events.Ingest(context.Background(), []EventInput{sizedEvent(t, id(0), 3_999_987, "")})
 		if err != nil {
 			t.Fatalf("Ingest: %v", err)
 		}
-		if h.transport.count() != 1 || len(h.transport.get(0).body) != 5_000_000 {
-			t.Fatalf("want one body of 5,000,000 bytes")
+		if h.transport.count() != 1 || len(h.transport.get(0).body) != 4_000_000 {
+			t.Fatalf("want one body of 4,000,000 bytes")
 		}
 		if summary.Accepted != 1 || summary.Rejected != 0 {
 			t.Errorf("summary = %+v", summary)
 		}
 	})
-	t.Run("4,999,988 bytes is a too_large row and the rest are sent", func(t *testing.T) {
-		events := []EventInput{smallEvent(0), sizedEvent(t, id(1), 4_999_988, ""), smallEvent(2)}
+	t.Run("3,999,988 bytes is a too_large row and the rest are sent", func(t *testing.T) {
+		events := []EventInput{smallEvent(0), sizedEvent(t, id(1), 3_999_988, ""), smallEvent(2)}
 		// The batch holds the caller's events 0 and 2, with a gap at 1. The
 		// fake rejects the batch's event 1, which is the caller's event 2:
 		// a rewrite that added the batch's first index would leave it at 1.
@@ -137,7 +137,7 @@ func TestIngestEventTooLargeToSend(t *testing.T) {
 			t.Fatalf("summary = %+v", summary)
 		}
 		e := summary.Errors[0]
-		if e.Index != 1 || e.Code != FieldErrorCodeTooLarge || e.Pointer != "/events/1" || !strings.Contains(e.Detail, "4999987") {
+		if e.Index != 1 || e.Code != FieldErrorCodeTooLarge || e.Pointer != "/events/1" || !strings.Contains(e.Detail, "3999987") {
 			t.Errorf("row error = %+v", e)
 		}
 		want := IngestRowError{Index: 2, Code: FieldErrorCodeInvalidValue, Pointer: "/events/2/model", Detail: "d"}
@@ -151,7 +151,7 @@ func TestIngestMeasuresUTF8Bytes(t *testing.T) {
 	// "é😀" is 2 characters and 6 bytes. The pair sits one byte over the
 	// limit in bytes, and three under it in characters.
 	const first = 2_500_000
-	second := 5_000_001 - 13 - 1 - first
+	second := 4_000_001 - 13 - 1 - first
 	events := []EventInput{
 		sizedEvent(t, id(0), first, ""),
 		sizedEvent(t, id(1), second, "é😀"),
@@ -196,6 +196,63 @@ func TestIngestCombinesBatches(t *testing.T) {
 	}
 	if !reflect.DeepEqual(summary, want) {
 		t.Errorf("summary =\n%+v\nwant\n%+v", summary, want)
+	}
+}
+
+// The API may omit every entry of a rejected row when the errors list's
+// byte limit leaves entries out; errors_truncated then says so. In the
+// two-batch case the truncated batch comes first, so a summary that kept
+// only the last batch's flag would read false. That second batch is
+// untruncated, so its one rejected row has its entry, at the caller's
+// index 500.
+func TestIngestAcceptsRejectedRowsWithoutEntries(t *testing.T) {
+	tests := []struct {
+		name   string
+		events int
+		bodies []string
+		want   *IngestSummary
+	}{
+		{
+			name:   "one batch",
+			events: 5,
+			bodies: []string{`{"accepted":2,"duplicates":0,"rejected":3,"errors":[],"errors_truncated":true}`},
+			want:   &IngestSummary{Accepted: 2, Rejected: 3, Errors: []IngestRowError{}, ErrorsTruncated: true, Batches: 1},
+		},
+		{
+			name:   "truncated batch then an untruncated one",
+			events: 501,
+			bodies: []string{
+				`{"accepted":496,"duplicates":0,"rejected":4,"errors":[],"errors_truncated":true}`,
+				`{"accepted":0,"duplicates":0,"rejected":1,"errors_truncated":false,` +
+					`"errors":[{"index":0,"code":"required","pointer":"/events/0/agent_key","detail":"d"}]}`,
+			},
+			want: &IngestSummary{
+				Accepted: 496,
+				Rejected: 5,
+				Errors: []IngestRowError{
+					{Index: 500, Code: FieldErrorCodeRequired, Pointer: "/events/500/agent_key", Detail: "d"},
+				},
+				ErrorsTruncated: true,
+				Batches:         2,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, func(n int, _ *http.Request, _ recorded) (*http.Response, error) {
+				return newResponse(200, "application/json", tt.bodies[n]), nil
+			})
+			summary, err := h.client.Events.Ingest(context.Background(), smallEvents(tt.events))
+			if err != nil {
+				t.Fatalf("Ingest: %v", err)
+			}
+			if h.transport.count() != len(tt.bodies) {
+				t.Fatalf("sent %d requests, want %d", h.transport.count(), len(tt.bodies))
+			}
+			if !reflect.DeepEqual(summary, tt.want) {
+				t.Errorf("summary =\n%+v\nwant\n%+v", summary, tt.want)
+			}
+		})
 	}
 }
 
@@ -308,7 +365,7 @@ func TestIngestTooLargeEventIsNeverInRemaining(t *testing.T) {
 	h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
 		return problemResponse(403, "insufficient_scope", "r"), nil
 	})
-	events := []EventInput{smallEvent(0), sizedEvent(t, id(1), 4_999_988, ""), smallEvent(2)}
+	events := []EventInput{smallEvent(0), sizedEvent(t, id(1), 3_999_988, ""), smallEvent(2)}
 	_, err := h.client.Events.Ingest(context.Background(), events)
 	var ingestErr *IngestError
 	if !errors.As(err, &ingestErr) {

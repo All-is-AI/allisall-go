@@ -83,6 +83,46 @@ func TestAPIErrorFromANonProblemBody(t *testing.T) {
 	}
 }
 
+// A proxy in front of the API may answer 413 with a body that is not a
+// problem document. It is an APIError with
+// status 413 and no code, and the default retries do not repeat it.
+func TestAPIErrorFromAProxy413(t *testing.T) {
+	tests := []struct {
+		name, contentType, body string
+	}{
+		{"plain text", "text/plain; charset=utf-8", "Request Entity Too Large"},
+		{"JSON of another shape", "application/json", `{"error":"too large"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+				return newResponse(413, tt.contentType, tt.body), nil
+			})
+			_, err := h.client.Events.Ingest(context.Background(), smallEvents(1))
+			var ingestErr *IngestError
+			if !errors.As(err, &ingestErr) {
+				t.Fatalf("err = %v, want an *IngestError", err)
+			}
+			var apiErr *APIError
+			if !errors.As(err, &apiErr) {
+				t.Fatalf("err = %v, want an APIError", err)
+			}
+			if apiErr.Status != 413 || apiErr.Code != "" || apiErr.Problem != nil || apiErr.RequestID != "" {
+				t.Errorf("APIError = %+v, want status 413, no code, no problem, no request id", apiErr)
+			}
+			if got, want := apiErr.Error(), "allisall: API error: status 413"; got != want {
+				t.Errorf("Error() = %q, want %q", got, want)
+			}
+			if h.transport.count() != 1 || len(h.recordedWaits()) != 0 {
+				t.Errorf("sent %d requests after %d waits, want 1 and none", h.transport.count(), len(h.recordedWaits()))
+			}
+			if ingestErr.RemainingFrom != 0 || len(ingestErr.Remaining) != 1 {
+				t.Errorf("remaining from %d holds %d events, want 0 and 1", ingestErr.RemainingFrom, len(ingestErr.Remaining))
+			}
+		})
+	}
+}
+
 func TestEveryErrorTypeMatchesErrAllisall(t *testing.T) {
 	cause := errors.New("cause")
 	tests := []struct {

@@ -1,14 +1,19 @@
 package allisall
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 // Decimal is an exact decimal number, used for money. It holds the
-// number's text and writes it to JSON verbatim, so a cost never passes
-// through a binary float on its way to the API.
+// number's text and writes it to JSON verbatim, and reads a JSON number
+// from its text, so money never passes through a binary float on its way
+// to or from the API.
 //
 // Build one with [ParseDecimal], [MustParseDecimal] or [DecimalFromFloat].
 // The zero Decimal is 0.
@@ -63,6 +68,128 @@ func (d Decimal) String() string {
 // MarshalJSON writes the Decimal's text as a JSON number, verbatim.
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	return []byte(d.String()), nil
+}
+
+// maxExponent is the largest exponent magnitude [Decimal.UnmarshalJSON]
+// writes out in digits. Money is far smaller; the bound keeps a hostile
+// exponent from building a huge string.
+const maxExponent = 400
+
+// UnmarshalJSON reads a JSON number from its text, before any binary float
+// exists, so the Decimal holds exactly the digits the API sent. A number in
+// exponent form is written out in plain digits by moving the decimal point,
+// which never rounds: 1e-7 becomes 0.0000001 and 1.5E+3 becomes 1500. An
+// exponent whose magnitude is over 400 is refused.
+//
+// Any JSON value other than a number, a string included, is refused. A
+// JSON null leaves the Decimal unchanged.
+func (d *Decimal) UnmarshalJSON(data []byte) error {
+	text := string(bytes.TrimSpace(data))
+	if text == "null" {
+		return nil
+	}
+	if kind := jsonKind(text); kind != "number" {
+		return &json.UnmarshalTypeError{Value: kind, Type: reflect.TypeFor[Decimal]()}
+	}
+	plain, err := plainDecimal(text)
+	if err != nil {
+		return err
+	}
+	d.text = plain
+	return nil
+}
+
+// jsonKind names the kind of JSON value text starts with, as
+// encoding/json's errors name it.
+func jsonKind(text string) string {
+	if text == "" {
+		return "empty"
+	}
+	switch text[0] {
+	case '"':
+		return "string"
+	case '{':
+		return "object"
+	case '[':
+		return "array"
+	case 't', 'f':
+		return "bool"
+	case 'n':
+		return "null"
+	}
+	return "number"
+}
+
+// plainDecimal returns the decimal text equal to the JSON number text, with
+// any exponent written out in digits.
+func plainDecimal(text string) (string, error) {
+	if isDecimalText(text) {
+		return text, nil
+	}
+	mantissa, exponent, found := strings.Cut(strings.ToLower(text), "e")
+	if !found || !isDecimalText(mantissa) {
+		return "", fmt.Errorf("allisall: %q is not a JSON number", text)
+	}
+	shift, ok := parseExponent(exponent)
+	if !ok {
+		return "", fmt.Errorf("allisall: %q is not a JSON number", text)
+	}
+	if shift < -maxExponent || shift > maxExponent {
+		return "", fmt.Errorf("allisall: the number %q has an exponent beyond ±%d", text, maxExponent)
+	}
+	sign := ""
+	if strings.HasPrefix(mantissa, "-") {
+		sign, mantissa = "-", mantissa[1:]
+	}
+	whole, fraction, _ := strings.Cut(mantissa, ".")
+	digits := whole + fraction
+	point := len(whole) + shift
+	var out string
+	switch {
+	case point <= 0:
+		out = "0." + strings.Repeat("0", -point) + digits
+	case point >= len(digits):
+		out = digits + strings.Repeat("0", point-len(digits))
+	default:
+		out = digits[:point] + "." + digits[point:]
+	}
+	// Moving the point can leave leading zeros in the whole part, as 0.5e1
+	// becomes 05.
+	for len(out) > 1 && out[0] == '0' && isDigit(out[1]) {
+		out = out[1:]
+	}
+	if out = sign + out; !isDecimalText(out) {
+		// Every branch above writes decimal text; the check keeps
+		// MarshalJSON's verbatim output safe if one ever does not.
+		return "", fmt.Errorf("allisall: %q is not a JSON number", text)
+	}
+	return out, nil
+}
+
+// parseExponent reads an exponent's text: an optional sign, then one or
+// more digits. A value too large for an int reports the bound's side, so
+// the caller refuses it as beyond the bound.
+func parseExponent(s string) (int, bool) {
+	sign := 1
+	switch {
+	case strings.HasPrefix(s, "-"):
+		sign, s = -1, s[1:]
+	case strings.HasPrefix(s, "+"):
+		s = s[1:]
+	}
+	if s == "" {
+		return 0, false
+	}
+	n := 0
+	for i := 0; i < len(s); i++ {
+		if !isDigit(s[i]) {
+			return 0, false
+		}
+		if n <= maxExponent {
+			n = n*10 + int(s[i]-'0')
+		}
+	}
+	return sign * n, true
 }
 
 // isDecimalText reports whether s matches -?(0|[1-9][0-9]*)(\.[0-9]+)?.

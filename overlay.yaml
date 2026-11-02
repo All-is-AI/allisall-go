@@ -1,0 +1,54 @@
+# The nullable members of the merge-patch bodies. In a patch, an absent
+# member leaves a value as it is and null clears it, so each of these is a
+# Nullable, which can say absent, null and a value apart. Every other
+# optional member is a pointer. Each is tagged omitzero, which leaves out
+# an absent member, and not omitempty, which has no effect on a struct.
+# scripts/generate.mjs refuses the document when a nullable patch member
+# is missing from this list.
+overlay: 1.0.0
+info:
+  title: Nullable merge-patch members
+  version: 1.0.0
+actions:
+  - target: $.components.schemas.AgentPatch.properties.framework
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.AgentPatch.properties.version
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.ClientPatch.properties.client_key
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.ClientPatch.properties.notes
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.ClientPatch.properties.renewal_date
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.CostLineItemPatch.properties.end_date
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
+  - target: $.components.schemas.ReportPatch.properties.note
+    update:
+      x-go-type: Nullable[string]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false

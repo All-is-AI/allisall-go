@@ -171,7 +171,8 @@ func TestRequestHeaders(t *testing.T) {
 			t.Errorf("%s = %q, want %q", k, got, v)
 		}
 	}
-	if !regexp.MustCompile(`^allisall-go/0\.1\.0 go/\d`).MatchString(rec.header.Get("User-Agent")) {
+	// The release tooling sets version, so pin its shape rather than its value.
+	if !regexp.MustCompile(`^allisall-go/\d+\.\d+\.\d+ go/\d`).MatchString(rec.header.Get("User-Agent")) {
 		t.Errorf("User-Agent = %q", rec.header.Get("User-Agent"))
 	}
 	if !uuidV4.MatchString(rec.header.Get("X-Request-Id")) {

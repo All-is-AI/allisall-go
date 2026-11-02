@@ -113,16 +113,30 @@ func specProperties(lines []string, name string) []string {
 	return out
 }
 
+// constDecl is one constant: its name and its string value.
+type constDecl struct{ name, value string }
+
 // sdkConsts returns the values of the constants of the named type
 // declared in this package's non-test files.
 func sdkConsts(t *testing.T, typeName string) []string {
+	t.Helper()
+	var out []string
+	for _, d := range sdkConstDecls(t, typeName) {
+		out = append(out, d.value)
+	}
+	return out
+}
+
+// sdkConstDecls returns the constants of the named type declared in this
+// package's non-test files.
+func sdkConstDecls(t *testing.T, typeName string) []constDecl {
 	t.Helper()
 	fset := token.NewFileSet()
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var out []string
+	var out []constDecl
 	for _, name := range files {
 		if strings.HasSuffix(name, "_test.go") {
 			continue
@@ -142,7 +156,10 @@ func sdkConsts(t *testing.T, typeName string) []string {
 				if !ok || ident.Name != typeName {
 					continue
 				}
-				for _, v := range vs.Values {
+				if len(vs.Values) != len(vs.Names) {
+					t.Fatalf("a %s declaration does not give each name one value", typeName)
+				}
+				for i, v := range vs.Values {
 					lit, ok := v.(*ast.BasicLit)
 					if !ok || lit.Kind != token.STRING {
 						t.Fatalf("a %s constant is not a string literal", typeName)
@@ -151,7 +168,7 @@ func sdkConsts(t *testing.T, typeName string) []string {
 					if err != nil {
 						t.Fatal(err)
 					}
-					out = append(out, s)
+					out = append(out, constDecl{vs.Names[i].Name, s})
 				}
 			}
 		}
@@ -251,5 +268,191 @@ func TestSpecCheckCanFail(t *testing.T) {
 				t.Errorf("after removing %q, only in the SDK = %v, want [%s]", m.drop, onlySDK, m.missing)
 			}
 		})
+	}
+}
+
+// inCondition reports whether block[i] sits under if, then, else or not,
+// where a code is a condition on a value rather than a member's definition.
+func inCondition(block []string, i int) bool {
+	indent := indentOf(block[i])
+	for j := i - 1; j >= 0 && indent > 0; j-- {
+		if strings.TrimSpace(block[j]) == "" || indentOf(block[j]) >= indent {
+			continue
+		}
+		indent = indentOf(block[j])
+		if k := strings.TrimSpace(block[j]); slices.Contains([]string{"if:", "then:", "else:", "not:"}, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// codeShapes returns, for each member named code in a schema, the trimmed
+// lines of its definition. The SDK keeps a code it does not list, which
+// is right only while the spec leaves every code open.
+func codeShapes(lines []string, name string) [][]string {
+	var out [][]string
+	block := schemaBlock(lines, name)
+	for i, l := range block {
+		if strings.TrimSpace(l) != "code:" || inCondition(block, i) {
+			continue
+		}
+		var shape []string
+		for _, d := range block[i+1:] {
+			if strings.TrimSpace(d) == "" || indentOf(d) <= indentOf(l) {
+				break
+			}
+			shape = append(shape, strings.TrimSpace(d))
+		}
+		out = append(out, shape)
+	}
+	return out
+}
+
+func TestInCondition(t *testing.T) {
+	block := strings.Split(`      if:
+        properties:
+          code:
+            const: validation_failed
+      not:
+        properties:
+          code:
+            type: string
+      then:
+        properties:
+          code:
+            type: string
+      else:
+        properties:
+          code:
+            type: string
+      properties:
+        code:
+          anyOf:`, "\n")
+	for i, want := range map[int]bool{2: true, 6: true, 10: true, 14: true, 17: false} {
+		if strings.TrimSpace(block[i]) != "code:" {
+			t.Fatalf("line %d is %q, not a code", i, block[i])
+		}
+		if got := inCondition(block, i); got != want {
+			t.Errorf("inCondition at line %d = %v, want %v", i, got, want)
+		}
+	}
+}
+
+// openCode is the definition of a code open beyond its catalogue.
+func openCode(catalogue string) []string {
+	return []string{"anyOf:", "- $ref: '#/components/schemas/" + catalogue + "'", "- type: string"}
+}
+
+var codeChecks = []struct {
+	schema, catalogue string
+	uses              int
+}{
+	{"Problem", "ErrorCode", 1},
+	{"IngestRowError", "FieldErrorCode", 1},
+	{"FieldError", "FieldErrorCode", 4}, // one for each kind of locator
+}
+
+// codeMismatches reports each schema whose codes are not all open, or
+// that holds a different number of codes than expected.
+func codeMismatches(lines []string) []string {
+	var out []string
+	for _, c := range codeChecks {
+		shapes := codeShapes(lines, c.schema)
+		if len(shapes) != c.uses {
+			out = append(out, c.schema+": "+strconv.Itoa(len(shapes))+" codes, want "+strconv.Itoa(c.uses))
+		}
+		for _, s := range shapes {
+			if !slices.Equal(s, openCode(c.catalogue)) {
+				out = append(out, c.schema+": a code is "+strings.Join(s, " "))
+			}
+		}
+	}
+	return out
+}
+
+func TestTheSpecLeavesEveryCodeOpen(t *testing.T) {
+	if m := codeMismatches(readSpec(t)); len(m) > 0 {
+		t.Errorf("codes the SDK would refuse to keep: %v", m)
+	}
+}
+
+// TestCodeCheckCanFail closes one code of each schema in the spec's text,
+// by blanking the line that opens it, and checks that the comparison then
+// reports it.
+func TestCodeCheckCanFail(t *testing.T) {
+	lines := readSpec(t)
+	for _, c := range codeChecks {
+		t.Run(c.schema, func(t *testing.T) {
+			mutated := slices.Clone(lines)
+			// schemaBlock returns a window onto mutated, so a blanked line
+			// changes the spec text the check reads.
+			block := schemaBlock(mutated, c.schema)
+			i := slices.IndexFunc(block, func(l string) bool { return strings.TrimSpace(l) == "- type: string" })
+			if i < 0 {
+				t.Fatalf("the %s block has no open code to close", c.schema)
+			}
+			block[i] = ""
+			if len(codeMismatches(mutated)) == 0 {
+				t.Errorf("closing a code in %s was not reported", c.schema)
+			}
+		})
+	}
+}
+
+// initialisms are the words a Go name writes in capitals: the common
+// initialisms of Go's naming convention, as linters and generators use.
+var initialisms = func() map[string]string {
+	m := map[string]string{}
+	for _, w := range strings.Fields("ACL API ASCII CPU CSS CSV DNS EOF GUID HTML HTTP HTTPS ID IP JSON LHS QPS RAM RHS RPC SLA SMTP SQL SSH TCP TLS TTL UDP UI UID UUID URI URL UTF8 VM XML XMPP XSRF XSS") {
+		m[strings.ToLower(w)] = w
+	}
+	return m
+}()
+
+// goName returns the Go name of a constant of the named type for a
+// snake_case value: invalid_json gives ErrorCodeInvalidJSON.
+func goName(typeName, value string) string {
+	var b strings.Builder
+	b.WriteString(typeName)
+	for _, w := range strings.Split(value, "_") {
+		if up, ok := initialisms[w]; ok {
+			b.WriteString(up)
+		} else if w != "" {
+			b.WriteString(strings.ToUpper(w[:1]) + w[1:])
+		}
+	}
+	return b.String()
+}
+
+// TestCodeConstantNames holds every code constant's name to its value, so
+// a constant callers already use keeps its name when the types are
+// generated.
+func TestCodeConstantNames(t *testing.T) {
+	for _, typeName := range []string{"ErrorCode", "FieldErrorCode", "EventCategory"} {
+		t.Run(typeName, func(t *testing.T) {
+			decls := sdkConstDecls(t, typeName)
+			if len(decls) == 0 {
+				t.Fatalf("found no %s constants", typeName)
+			}
+			for _, d := range decls {
+				if want := goName(typeName, d.value); d.name != want {
+					t.Errorf("%s %q is named %s, want %s", typeName, d.value, d.name, want)
+				}
+			}
+		})
+	}
+}
+
+func TestGoName(t *testing.T) {
+	for value, want := range map[string]string{
+		"invalid_json":    "ErrorCodeInvalidJSON",
+		"api_key_revoked": "ErrorCodeAPIKeyRevoked",
+		"uri_too_long":    "ErrorCodeURITooLong",
+		"not_found":       "ErrorCodeNotFound",
+	} {
+		if got := goName("ErrorCode", value); got != want {
+			t.Errorf("goName(%q) = %s, want %s", value, got, want)
+		}
 	}
 }

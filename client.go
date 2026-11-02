@@ -23,8 +23,32 @@ const (
 // Client calls the allisall API. Build one with [NewClient] and reuse it;
 // it is safe for concurrent use and holds nothing that needs closing.
 type Client struct {
-	// Events groups the operations on events.
+	// Events groups the operations on events: ingest, and the events
+	// behind a client's totals.
 	Events *EventsService
+	// Imports groups the CSV import operations.
+	Imports *ImportsService
+	// Clients groups the operations on clients.
+	Clients *ClientsService
+	// Agents groups the operations on agents.
+	Agents *AgentsService
+	// ValueModels groups the operations on value models and value
+	// templates.
+	ValueModels *ValueModelsService
+	// OutcomeTypes groups the operations on outcome types.
+	OutcomeTypes *OutcomeTypesService
+	// Cost groups the operations on cost line items and the price table.
+	Cost *CostService
+	// Analytics groups the operations that compute a client's figures.
+	Analytics *AnalyticsService
+	// Calculations groups the operations on calculations.
+	Calculations *CalculationsService
+	// Reports groups the operations on reports.
+	Reports *ReportsService
+	// Dashboard groups the operations on the workspace's dashboard.
+	Dashboard *DashboardService
+	// Health groups the liveness check.
+	Health *HealthService
 
 	apiKey        string
 	tokenProvider func(ctx context.Context) (string, error)
@@ -33,6 +57,8 @@ type Client struct {
 	maxRetries    int
 	httpClient    *http.Client
 	userAgent     string
+	// headers are the WithHeader headers, sent on every request.
+	headers []header
 
 	// Seams for tests: the clock, the wait between attempts and the
 	// jitter source.
@@ -86,6 +112,7 @@ type settings struct {
 	timeout       *time.Duration
 	maxRetries    *int
 	httpClient    *http.Client
+	headers       []header
 }
 
 // WithAPIKey sets the API key the client sends. Without it, and without
@@ -105,9 +132,10 @@ func WithAPIKey(key string) Option {
 // the call returns an [*IngestError] whose cause is the provider's error,
 // reachable with errors.Is and errors.As.
 //
-// The ingest operation takes API keys only, so in this release a provider
-// is useful to supply a key fetched at run time, for example from a
-// secret store.
+// A provider may supply an API key fetched at run time, for example from
+// a secret store, or a session token: every operation but ingest accepts
+// one, and acts as the session's user. Ingest takes API keys only, and
+// answers a session token with 401 unauthenticated.
 func WithTokenProvider(provider func(ctx context.Context) (string, error)) Option {
 	return func(s *settings) {
 		s.tokenProvider = provider
@@ -146,6 +174,20 @@ func WithHTTPClient(c *http.Client) Option {
 	return func(s *settings) { s.httpClient = c }
 }
 
+// WithHeader sends a header on every request. A header of the same name,
+// in any case, from the SDK, such as User-Agent, or from an earlier
+// WithHeader, is replaced, so one header is sent; a call's own
+// [WithRequestHeader] replaces it in turn.
+//
+// It may not name Authorization, Content-Type, Idempotency-Key or
+// X-Request-Id, which the SDK sets, nor Host, Content-Length or
+// Transfer-Encoding, which net/http sets. That, a name that is not an HTTP
+// token, or a value holding a control character such as a line feed,
+// makes [NewClient] fail.
+func WithHeader(name, value string) Option {
+	return func(s *settings) { s.headers = append(s.headers, header{name: name, value: value}) }
+}
+
 // NewClient builds a Client. It resolves the credential and the base URL
 // once, here, and fails rather than waiting for a request to fail.
 //
@@ -173,6 +215,17 @@ func NewClient(opts ...Option) (*Client, error) {
 		random:     rand.Float64,
 	}
 	c.Events = &EventsService{client: c}
+	c.Imports = &ImportsService{client: c}
+	c.Clients = &ClientsService{client: c}
+	c.Agents = &AgentsService{client: c}
+	c.ValueModels = &ValueModelsService{client: c}
+	c.OutcomeTypes = &OutcomeTypesService{client: c}
+	c.Cost = &CostService{client: c}
+	c.Analytics = &AnalyticsService{client: c}
+	c.Calculations = &CalculationsService{client: c}
+	c.Reports = &ReportsService{client: c}
+	c.Dashboard = &DashboardService{client: c}
+	c.Health = &HealthService{client: c}
 
 	switch {
 	case s.apiKey != nil && s.providerSet:
@@ -226,6 +279,12 @@ func NewClient(opts ...Option) (*Client, error) {
 		}
 		c.maxRetries = *s.maxRetries
 	}
+	for _, h := range s.headers {
+		if err := checkHeader(h.name, h.value); err != nil {
+			return nil, fmt.Errorf("%w: WithHeader: %w", ErrAllisall, err)
+		}
+	}
+	c.headers = s.headers
 	if c.httpClient == nil {
 		// The SDK's own client follows no redirect: a 3xx becomes an
 		// *APIError, so the credential is never sent on to another URL.

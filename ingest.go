@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"reflect"
 	"slices"
 	"strconv"
@@ -20,7 +19,7 @@ const (
 	// maxBatchEvents is the most events the API takes in one batch.
 	maxBatchEvents = 500
 	// maxBodyBytes is the API's limit on an ingest body, inclusive.
-	maxBodyBytes = 5_000_000
+	maxBodyBytes = 4_000_000
 	// envelopeBytes is the length of `{"events":[` plus `]}`.
 	envelopeBytes = 13
 	// maxEventBytes is the largest event that fits in a batch alone.
@@ -45,21 +44,36 @@ type batch struct {
 // An empty list sends nothing and returns a summary of zeros. Every event
 // without an EventID is given a random one first, so a retried batch
 // never stores an event twice; the caller's slice is not modified.
-// Batches hold at most 500 events and 5,000,000 bytes of body, and are
+// Batches hold at most 500 events and 4,000,000 bytes of body, and are
 // sent one after another, in order, each with the client's retries. An
 // event too large to send in any batch is not sent: it is reported in the
 // summary as a rejected row with code too_large.
 //
-// A partially accepted batch is a success: its refused events are in the
-// summary's Errors. When a batch fails, Ingest sends nothing after it and
-// returns an [*IngestError] holding the summary so far and the events not
-// yet stored. An error from the client's token provider fails the batch
-// the same way: it is the IngestError's cause, which errors.Is and
-// errors.As see through. An event that cannot be encoded as JSON, such
-// as one with a NaN Quantity or a string that is not valid UTF-8, ends
-// the call before any request is sent, with an error that does not match
-// [ErrAllisall].
-func (s *EventsService) Ingest(ctx context.Context, events []EventInput) (*IngestSummary, error) {
+// A partially accepted batch is a success: its refused events are counted
+// in the summary's Rejected, and their problems listed in its Errors, as
+// far as ErrorsTruncated allows. When a batch fails, Ingest sends nothing
+// after it and returns an [*IngestError] holding the summary so far and
+// the events not yet stored. An error from the client's token provider
+// fails the batch the same way: it is the IngestError's cause, which
+// errors.Is and errors.As see through. An event that cannot be encoded
+// as JSON, such as one with a NaN Quantity or a string that is not valid
+// UTF-8, ends the call before any request is sent, with an error that
+// does not match [ErrAllisall].
+//
+// The options apply to every batch: [WithRequestTimeout] to each attempt,
+// [WithRequestMaxRetries] to each batch's retries, and [WithRequestHeader]
+// to every request. An option that is refused ends the call before any
+// request is sent. Ingest never sends an Idempotency-Key: each event's
+// event_id makes a retried batch safe.
+func (s *EventsService) Ingest(ctx context.Context, events []EventInput, opts ...RequestOption) (*IngestSummary, error) {
+	cfg, err := resolveOptions(idempotentOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	op, err := operationFor(opIngestEvents)
+	if err != nil {
+		return nil, err
+	}
 	summary := &IngestSummary{Errors: []IngestRowError{}}
 	if len(events) == 0 {
 		return summary, nil
@@ -96,7 +110,7 @@ func (s *EventsService) Ingest(ctx context.Context, events []EventInput) (*Inges
 	}
 
 	for n, b := range batches {
-		result, err := s.sendBatch(ctx, b, encoded)
+		result, err := s.sendBatch(ctx, op, cfg, b, encoded)
 		if err != nil {
 			// A token provider's error fails the batch like any other, with
 			// the provider's error itself as the cause.
@@ -126,7 +140,7 @@ func (s *EventsService) Ingest(ctx context.Context, events []EventInput) (*Inges
 }
 
 // sendBatch sends one batch and decodes its result.
-func (s *EventsService) sendBatch(ctx context.Context, b batch, encoded [][]byte) (*ingestResult, error) {
+func (s *EventsService) sendBatch(ctx context.Context, op *operation, cfg callConfig, b batch, encoded [][]byte) (*ingestResult, error) {
 	size := envelopeBytes + len(b.positions) - 1
 	for _, i := range b.positions {
 		size += len(encoded[i])
@@ -141,7 +155,11 @@ func (s *EventsService) sendBatch(ctx context.Context, b batch, encoded [][]byte
 	}
 	body = append(body, `]}`...)
 
-	resp, err := s.client.send(ctx, http.MethodPost, "/v1/events", body)
+	p, err := s.client.prepare(call{op: op, raw: body}, cfg)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.client.send(ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -149,11 +167,7 @@ func (s *EventsService) sendBatch(ctx context.Context, b batch, encoded [][]byte
 	if err := json.Unmarshal(resp.body, &result); err != nil ||
 		result.Accepted == nil || result.Duplicates == nil || result.Rejected == nil ||
 		result.Errors == nil || result.ErrorsTruncated == nil || !indicesInBatch(result.Errors, len(b.positions)) {
-		return nil, &APIError{
-			Status:    resp.status,
-			RequestID: resp.header.Get("X-Request-Id"),
-			Headers:   resp.header,
-		}
+		return nil, shapeError(resp)
 	}
 	return &result, nil
 }
@@ -172,7 +186,7 @@ func indicesInBatch(errs []IngestRowError, n int) bool {
 
 // split packs the encoded events into batches in input order. A batch is
 // closed when it holds 500 events, or before an event that would take its
-// body over 5,000,000 bytes. An event over maxEventBytes is in no batch:
+// body over 4,000,000 bytes. An event over maxEventBytes is in no batch:
 // its index is returned in tooLarge.
 func split(encoded [][]byte) (batches []batch, tooLarge []int) {
 	var cur batch

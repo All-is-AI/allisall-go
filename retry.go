@@ -18,15 +18,15 @@ const (
 	maxRetryAfter = 60 * time.Second
 )
 
-// send sends a request with the client's retries. It returns the 2xx
+// send sends a prepared request with its retries. It returns the 2xx
 // response, or the error of the last attempt.
-func (c *Client) send(ctx context.Context, method, path string, body []byte) (*response, error) {
+func (c *Client) send(ctx context.Context, p *prepared) (*response, error) {
 	for retry := 0; ; retry++ {
-		resp, err := c.attempt(ctx, method, path, body)
+		resp, err := c.attempt(ctx, p)
 		if err == nil {
 			return resp, nil
 		}
-		wait, ok := c.retryWait(err, retry)
+		wait, ok := c.retryWait(err, retry, p.maxRetries, p.op.idempotent)
 		if !ok {
 			return nil, err
 		}
@@ -36,10 +36,12 @@ func (c *Client) send(ctx context.Context, method, path string, body []byte) (*r
 	}
 }
 
-// retryWait decides whether the failed attempt, after retry retries, is
-// retried, and how long to wait first.
-func (c *Client) retryWait(err error, retry int) (time.Duration, bool) {
-	if retry >= c.maxRetries {
+// retryWait decides whether the failed attempt, after retry of maxRetries
+// retries, is retried, and how long to wait first. On an operation that
+// takes an Idempotency-Key, a 409 idempotency_key_in_use is retried too:
+// an earlier attempt with the same key is still running.
+func (c *Client) retryWait(err error, retry, maxRetries int, idempotent bool) (time.Duration, bool) {
+	if retry >= maxRetries {
 		return 0, false
 	}
 	var connErr *ConnectionError
@@ -47,7 +49,11 @@ func (c *Client) retryWait(err error, retry int) (time.Duration, bool) {
 		return c.backoff(retry + 1), true
 	}
 	var apiErr *APIError
-	if !errors.As(err, &apiErr) || !retryableStatus(apiErr.Status) {
+	if !errors.As(err, &apiErr) {
+		return 0, false
+	}
+	keyInUse := idempotent && apiErr.Status == http.StatusConflict && apiErr.Code == ErrorCodeIdempotencyKeyInUse
+	if !retryableStatus(apiErr.Status) && !keyInUse {
 		return 0, false
 	}
 	if apiErr.hasRetryAfter {

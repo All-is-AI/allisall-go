@@ -71,10 +71,12 @@ type IngestSummary struct {
 	// Rejected is the number of events refused, each counted once.
 	Rejected int
 	// Errors holds one entry per problem, ascending by Index, which is the
-	// event's position in the caller's list.
+	// event's position in the caller's list. When ErrorsTruncated is true,
+	// some problems have no entry, and a rejected event may have none.
 	Errors []IngestRowError
-	// ErrorsTruncated reports whether any rejected event had more problems
-	// than Errors holds.
+	// ErrorsTruncated reports whether Errors omits any problem. The API
+	// lists at most 20 problems of one event, and at most 1,000,000 bytes
+	// of entries for one batch. The counts always cover every event.
 	ErrorsTruncated bool
 	// Batches is the number of batches sent.
 	Batches int

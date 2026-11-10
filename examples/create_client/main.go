@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	allisall "github.com/All-is-AI/allisall-go"
 )
@@ -31,10 +32,12 @@ func run(ctx context.Context, client *allisall.Client) error {
 	// The SDK sends one Idempotency-Key on every attempt, so a retry cannot
 	// create a second client.
 	created, err := client.Clients.Create(ctx, allisall.ClientCreate{
-		Name:        "Acme Logistics",
-		Status:      allisall.ClientStatusActive,
-		ClientKey:   new("acme"),
-		RenewalDate: new("2026-12-31"),
+		Name:      "Acme Logistics",
+		Status:    allisall.ClientStatusActive,
+		ClientKey: new("acme"),
+		// A renewal date one calendar year after today's UTC date. A date
+		// before yesterday in UTC is refused.
+		RenewalDate: new(time.Now().UTC().AddDate(1, 0, 0).Format(time.DateOnly)),
 	})
 	if err != nil {
 		return err

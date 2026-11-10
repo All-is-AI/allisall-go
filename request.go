@@ -413,24 +413,52 @@ func encodeQuery(query any) (string, error) {
 			}
 			fv = fv.Elem()
 		}
-		var s string
-		switch {
-		case fv.Type() == timeType:
-			tm, _ := fv.Interface().(time.Time) // the case's condition holds
-			if y := tm.Year(); y < 0 || y > 9999 {
-				return "", fmt.Errorf("allisall: query parameter %s: year %d is outside 0 to 9999", name, y)
+		if fv.Kind() == reflect.Slice {
+			// A repeatable parameter: one parameter per item, in order. Only
+			// a parameter the spec declares as an array is generated as a
+			// slice. A nil slice is left out; an empty one has no faithful
+			// form, because leaving the parameter out means every value.
+			if fv.IsNil() {
+				continue
 			}
-			s = tm.Format(time.RFC3339Nano)
-		case fv.Kind() == reflect.String:
-			s = fv.String()
-		case fv.CanInt():
-			s = strconv.FormatInt(fv.Int(), 10)
-		default:
-			return "", fmt.Errorf("allisall: query parameter %s: a %s cannot be sent", name, fv.Type())
+			if fv.Len() == 0 {
+				return "", fmt.Errorf("allisall: query parameter %s is an empty list; leave it nil to match every value", name)
+			}
+			for j := 0; j < fv.Len(); j++ {
+				s, err := queryValue(name, fv.Index(j))
+				if err != nil {
+					return "", err
+				}
+				parts = append(parts, url.QueryEscape(name)+"="+url.QueryEscape(s))
+			}
+			continue
+		}
+		s, err := queryValue(name, fv)
+		if err != nil {
+			return "", err
 		}
 		parts = append(parts, url.QueryEscape(name)+"="+url.QueryEscape(s))
 	}
 	return strings.Join(parts, "&"), nil
+}
+
+// queryValue is one query value's text: an instant as RFC 3339, a string
+// as it is, an integer in decimal.
+func queryValue(name string, fv reflect.Value) (string, error) {
+	switch {
+	case fv.Type() == timeType:
+		tm, _ := fv.Interface().(time.Time) // the case's condition holds
+		if y := tm.Year(); y < 0 || y > 9999 {
+			return "", fmt.Errorf("allisall: query parameter %s: year %d is outside 0 to 9999", name, y)
+		}
+		return tm.Format(time.RFC3339Nano), nil
+	case fv.Kind() == reflect.String:
+		return fv.String(), nil
+	case fv.CanInt():
+		return strconv.FormatInt(fv.Int(), 10), nil
+	default:
+		return "", fmt.Errorf("allisall: query parameter %s: a %s cannot be sent", name, fv.Type())
+	}
 }
 
 // decodeResponse decodes a successful response's body into out, a pointer

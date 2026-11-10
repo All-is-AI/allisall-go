@@ -49,6 +49,11 @@ type Client struct {
 	Dashboard *DashboardService
 	// Health groups the liveness check.
 	Health *HealthService
+	// Workspace groups the operation on the workspace the credential
+	// belongs to.
+	Workspace *WorkspaceService
+	// Onboarding groups the operations on the guided setup's progress.
+	Onboarding *OnboardingService
 
 	apiKey        string
 	tokenProvider func(ctx context.Context) (string, error)
@@ -226,6 +231,8 @@ func NewClient(opts ...Option) (*Client, error) {
 	c.Reports = &ReportsService{client: c}
 	c.Dashboard = &DashboardService{client: c}
 	c.Health = &HealthService{client: c}
+	c.Workspace = &WorkspaceService{client: c}
+	c.Onboarding = &OnboardingService{client: c}
 
 	switch {
 	case s.apiKey != nil && s.providerSet:

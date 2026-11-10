@@ -39,7 +39,8 @@ concurrent use.
 
 The client groups its methods by resource, each a field of the client:
 `Events`, `Imports`, `Clients`, `Agents`, `ValueModels`, `OutcomeTypes`,
-`Cost`, `Analytics`, `Calculations`, `Reports`, `Dashboard` and `Health`.
+`Cost`, `Analytics`, `Calculations`, `Reports`, `Dashboard`, `Health`,
+`Workspace` and `Onboarding`.
 Every method takes a `context.Context` first, then the ids in its path,
 then its body or query, then options. Each method's documentation names
 the API operation it calls and the scope your key needs.
@@ -96,7 +97,9 @@ clears it, and the zero `Nullable` leaves it unchanged.
 updated, err := client.Clients.Update(ctx, clientID, allisall.ClientPatch{
 	Status:      new(allisall.ClientStatusChurned),
 	Notes:       allisall.Null[string](),           // clears the notes
-	RenewalDate: allisall.NewNullable("2026-12-31"), // sets the renewal date
+	// Sets the renewal date to one calendar year after today's UTC date; a
+	// date before yesterday in UTC is refused.
+	RenewalDate: allisall.NewNullable(time.Now().UTC().AddDate(1, 0, 0).Format(time.DateOnly)),
 })
 ```
 

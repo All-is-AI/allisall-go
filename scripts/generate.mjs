@@ -51,13 +51,27 @@ export const SCALARS = [
   "DateInput",
   "Month",
   "Currency",
+  "SearchText",
   "MinorUnits",
   "Money",
   "Ratio",
 ];
 
 /** The access policies of the operations the SDK calls. */
-const SDK_POLICIES = new Set(["KeyOnly", "KeyOrSession", "Public"]);
+export const SDK_POLICIES = new Set(["KeyOnly", "KeyOrSession", "Public"]);
+
+/**
+ * The access policies of the operations the SDK leaves out: a signed-in
+ * session's trust acts, the share-token read, an invite's redemption and an
+ * invitee's workspace creation. An operation under a policy in neither set
+ * is refused, so a new policy is decided before the SDK calls or drops it.
+ */
+export const EXCLUDED_POLICIES = new Set([
+  "SessionOnly",
+  "ShareToken",
+  "InviteToken",
+  "InviteeSession",
+]);
 
 /** The schema the SDK's own Client type would collide with, and its Go name. */
 const RENAMED = { Client: "ClientRecord" };
@@ -172,7 +186,8 @@ const BODY_KINDS = [
 /**
  * The operations the SDK calls: each one with a `2xx` response, other than a
  * `HEAD`, whose access policy an API key or no credential meets. Every
- * operation with a `2xx` response is checked, so a malformed one is refused
+ * operation with a `2xx` response is checked, so a malformed one, or one
+ * under a policy in neither SDK_POLICIES nor EXCLUDED_POLICIES, is refused
  * even when the SDK does not call it.
  */
 export function sdkOperations(spec) {
@@ -199,7 +214,12 @@ export function sdkOperations(spec) {
       if (typeof operation["x-idempotent"] !== "boolean") {
         throw new Error(`${id} has no boolean x-idempotent`);
       }
-      if (!SDK_POLICIES.has(access.policy)) continue;
+      if (EXCLUDED_POLICIES.has(access.policy)) continue;
+      if (!SDK_POLICIES.has(access.policy)) {
+        throw new Error(
+          `${id} has the x-access policy ${access.policy}, which the SDK neither calls nor leaves out`,
+        );
+      }
 
       const requestBody = deref(spec, operation.requestBody);
       const content = isObject(requestBody) ? (requestBody.content ?? {}) : {};
@@ -299,6 +319,16 @@ function nonNullGoType(spec, member) {
   const branch = branches[0];
   if (branch.$ref === `${SCHEMAS}Money`) return "Decimal";
   const t = deref(spec, branch);
+  // An enum the generator declares as a type of its own, such as
+  // RenewalTerm, keeps its name.
+  if (
+    typeof branch.$ref === "string" &&
+    branch.$ref.startsWith(SCHEMAS) &&
+    Array.isArray(t.enum)
+  ) {
+    const name = branch.$ref.slice(SCHEMAS.length);
+    if (!SCALARS.includes(name)) return RENAMED[name] ?? name;
+  }
   const type = Array.isArray(t.type)
     ? t.type.filter((x) => x !== "null")
     : [t.type];
@@ -481,24 +511,25 @@ export function preload(spec, operations) {
     delete schemas[from];
   }
 
-  // The tab in the delimiter's enum cannot be a Go constant name; the SDK
-  // declares the delimiters itself.
+  // The tab in the delimiter's enum cannot be a Go constant name, and
+  // oapi-codegen refuses it; the SDK declares the delimiters itself. The
+  // request's inline enum becomes a plain string, and the response's
+  // ImportDelimiter, an open set the anyOf collapse above has reduced to
+  // its $ref, becomes a string type.
   const delimiter = schemas.ImportMapping?.properties?.delimiter;
   if (delimiter !== undefined) {
-    // Compared as sets: the order the spec lists them in does not matter.
-    const listed = delimiter.enum;
-    const sameSet =
-      Array.isArray(listed) &&
-      listed.length === DELIMITERS.length &&
-      new Set(listed).size === listed.length &&
-      DELIMITERS.every((d) => listed.includes(d));
-    if (!sameSet) {
-      throw new Error(
-        `ImportMapping.delimiter lists ${JSON.stringify(delimiter.enum)}, but the SDK declares constants for ${JSON.stringify(DELIMITERS)}`,
-      );
-    }
+    checkDelimiters("ImportMapping.delimiter", delimiter.enum);
     const { enum: _e, ...rest } = delimiter;
     schemas.ImportMapping.properties.delimiter = { ...rest, type: "string" };
+  }
+  if (schemas.ImportDelimiter !== undefined) {
+    checkDelimiters("ImportDelimiter", schemas.ImportDelimiter.enum);
+    const {
+      enum: _e,
+      "x-enum-varnames": _v,
+      ...rest
+    } = schemas.ImportDelimiter;
+    schemas.ImportDelimiter = { ...rest, type: "string" };
   }
 
   checkRefs(out);
@@ -510,6 +541,24 @@ export function preload(spec, operations) {
     }
   });
   return out;
+}
+
+/**
+ * Throws unless `listed` holds exactly the delimiters the SDK declares
+ * constants for. Compared as sets: the order the spec lists them in does
+ * not matter.
+ */
+function checkDelimiters(where, listed) {
+  const sameSet =
+    Array.isArray(listed) &&
+    listed.length === DELIMITERS.length &&
+    new Set(listed).size === listed.length &&
+    DELIMITERS.every((d) => listed.includes(d));
+  if (!sameSet) {
+    throw new Error(
+      `${where} lists ${JSON.stringify(listed)}, but the SDK declares constants for ${JSON.stringify(DELIMITERS)}`,
+    );
+  }
 }
 
 function goString(s) {

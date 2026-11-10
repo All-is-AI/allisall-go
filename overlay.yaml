@@ -40,6 +40,12 @@ actions:
       x-go-type-skip-optional-pointer: true
       x-omitzero: true
       x-omitempty: false
+  - target: $.components.schemas.ClientPatch.properties.renewal_term
+    update:
+      x-go-type: Nullable[RenewalTerm]
+      x-go-type-skip-optional-pointer: true
+      x-omitzero: true
+      x-omitempty: false
   - target: $.components.schemas.CostLineItemPatch.properties.end_date
     update:
       x-go-type: Nullable[string]

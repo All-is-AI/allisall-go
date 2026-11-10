@@ -50,6 +50,81 @@ func sendList[T, B, Q any](ctx context.Context, c *Client, cl call, err error, q
 	return list(ctx, c, cl, query, opts, data)
 }
 
+// List lists the workspace's events whose timestamp falls in the period,
+// newest first, and returns the first page. Walk every event of every page
+// with [Page.All]. A nil query sends none.
+//
+// From and To are required unless ImportBatchID is set, and then are both
+// set or neither; the API refuses a missing bound with required. They are
+// pointers because the type cannot say so.
+//
+// The list is held still under an arrival limit, AsOf, which the first
+// response issues. A walk follows the next cursor, which carries it, so
+// every page of one walk reads the same events while new ones arrive. To
+// show numbered pages instead, send the first response's Body.AsOf with
+// each later Page. Filtered by ImportBatchID, AsOf is issued but not
+// applied, because an import's events appear together when it commits.
+// Otherwise an event appears a second or two after the API stores it, and
+// later while a long request, such as a large import, is still in progress,
+// so a read straight after an ingest may not include it yet.
+//
+// Set Page for a numbered page: the page's Body then holds Page, Total and
+// TotalCapped. Total counts at most 10,000 events, and TotalCapped is true
+// when more matched; filtered by ImportBatchID, Total is exact. Only that
+// first page is counted; every later page of a walk continues by cursor
+// from it, and its Body.Page, Body.Total and Body.TotalCapped are nil. To
+// show another numbered page, call List again with its Page rather than
+// [Page.NextPage].
+//
+// A Sort and Dir other than timestamp descending need Page, or the API
+// refuses the call with required on page. A walk from a sorted page
+// continues by offset and reads every earlier row for each page, so walk
+// in the default order.
+//
+// Needs the read scope. Operation listEvents.
+func (s *EventsService) List(ctx context.Context, query *ListEventsParams, opts ...RequestOption) (*Page[AttributedEvent, EventList], error) {
+	cl, err := opCall("listEvents")
+	return sendList(ctx, s.client, cl, err, query, opts, func(b *EventList) []AttributedEvent { return b.Data })
+}
+
+// GetSummary counts the events [EventsService.List] holds under the same
+// period, filters and AsOf: in all, per day and per category. A day is 24
+// hours counted from From, so local midnight with its offset as From gives
+// local days. The period is required, also with ImportBatchID. Without
+// ImportBatchID, an event is counted a second or two after the API stores
+// it, and later while a long request, such as a large import, is still in
+// progress, so a read straight after an ingest may not count it yet.
+//
+// Needs the read scope. Operation getEventSummary.
+func (s *EventsService) GetSummary(ctx context.Context, query GetEventSummaryParams, opts ...RequestOption) (*EventSummary, error) {
+	cl, err := opCall("getEventSummary")
+	cl.query = &query
+	return send[EventSummary](ctx, s.client, cl, err, idempotentOptions(opts))
+}
+
+// ListArrivals lists the workspace's events in the order the API stored
+// them, newest first, below an arrival limit, AsOf, which the response
+// issues, and returns the first page. Walk every event of every page with
+// [Page.All]. A nil query sends none. From and To filter by timestamp, and
+// each is optional on its own.
+//
+// With Since, the list holds the events that arrived at or after it, and
+// Body.Count counts them. To poll, send each response's Body.AsOf as the
+// next call's Since and walk the result: consecutive windows meet without a
+// gap or an overlap. To learn only how many arrived, set Limit to 1 and
+// read Body.Count. The SDK does not poll on its own. Since may be at most
+// 24 hours back; a feed further behind reloads without it. An event falls
+// below AsOf a second or two after the API stores it, and later while a
+// long request, such as a large import, is still in progress. A read
+// straight after an ingest may not include it yet; poll with Since until it
+// does.
+//
+// Needs the read scope. Operation listEventArrivals.
+func (s *EventsService) ListArrivals(ctx context.Context, query *ListEventArrivalsParams, opts ...RequestOption) (*Page[AttributedEvent, EventArrivalList], error) {
+	cl, err := opCall("listEventArrivals")
+	return sendList(ctx, s.client, cl, err, query, opts, func(b *EventArrivalList) []AttributedEvent { return b.Data })
+}
+
 // ListForClient lists the events behind a client's totals: the event
 // drill-down, over the period query.From to query.To, which are required.
 //
@@ -67,6 +142,32 @@ func (s *EventsService) ListForClient(ctx context.Context, clientID string, quer
 // client.Imports.
 type ImportsService struct {
 	client *Client
+}
+
+// List lists the workspace's imports, newest first, each with its counts,
+// and returns the first page. Walk every import of every page with
+// [Page.All]. A nil query sends none.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
+//
+// Needs the read scope. Operation listImports.
+func (s *ImportsService) List(ctx context.Context, query *ListImportsParams, opts ...RequestOption) (*Page[ImportSummary, ImportList], error) {
+	cl, err := opCall("listImports")
+	return sendList(ctx, s.client, cl, err, query, opts, func(b *ImportList) []ImportSummary { return b.Data })
+}
+
+// Get reads an import, with the mapping it ran with. Send that mapping as
+// the next import's with [AppliedImportMapping.ToImportMapping].
+//
+// Needs the read scope. Operation getImport.
+func (s *ImportsService) Get(ctx context.Context, id string, opts ...RequestOption) (*Import, error) {
+	cl, err := opCall("getImport", id)
+	return send[Import](ctx, s.client, cl, err, idempotentOptions(opts))
 }
 
 // Preview previews a CSV import: it parses, maps and validates the file
@@ -107,6 +208,13 @@ type ClientsService struct {
 // List lists clients, and returns the first page. Walk every client of
 // every page with [Page.All]. A nil query sends none.
 //
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
+//
 // Needs the read scope. Operation listClients.
 func (s *ClientsService) List(ctx context.Context, query *ListClientsParams, opts ...RequestOption) (*Page[ClientRecord, ClientList], error) {
 	cl, err := opCall("listClients")
@@ -114,6 +222,15 @@ func (s *ClientsService) List(ctx context.Context, query *ListClientsParams, opt
 }
 
 // Create creates a client.
+//
+// A RenewalDate before the request's UTC date less one day is refused with
+// 400 out_of_range, so no time zone's today is refused. With a RenewalTerm,
+// an active client's renewal date rolls forward by whole terms once it
+// passes.
+//
+// ClientKey is unique in the workspace, ignoring letter case and
+// surrounding whitespace: a key another client already holds, in any case
+// or padding, is refused with 409 client_key_in_use.
 //
 // Every attempt of the call sends one Idempotency-Key, so a retry cannot
 // create a second client.
@@ -135,6 +252,18 @@ func (s *ClientsService) Get(ctx context.Context, id string, opts ...RequestOpti
 
 // Update updates a client with a merge patch: a member left out keeps its
 // value, a [Null] clears it, and any other value sets it.
+//
+// Sending back the RenewalDate a read returned keeps the client's renewal
+// schedule: a date on the schedule, up to the one it shows on the next UTC
+// day, changes nothing. Any other date is a new renewal date, and one
+// before the request's UTC date less one day is refused with 400
+// out_of_range. A patch that changes RenewalTerm or Status saves the date
+// the client shows on the current UTC day as the new start of its
+// schedule, without the patch sending a date.
+//
+// ClientKey is unique in the workspace, ignoring letter case and
+// surrounding whitespace: a key another client already holds, in any case
+// or padding, is refused with 409 client_key_in_use.
 //
 // Never retried.
 //
@@ -181,6 +310,13 @@ type AgentsService struct {
 
 // List lists agents, and returns the first page. Walk every agent of every
 // page with [Page.All]. A nil query sends none.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
 //
 // Needs the read scope. Operation listAgents.
 func (s *AgentsService) List(ctx context.Context, query *ListAgentsParams, opts ...RequestOption) (*Page[AgentListItem, AgentList], error) {
@@ -246,6 +382,13 @@ type ValueModelsService struct {
 
 // List lists value models, and returns the first page. Walk every value
 // model of every page with [Page.All]. A nil query sends none.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
 //
 // Needs the read scope. Operation listValueModels.
 func (s *ValueModelsService) List(ctx context.Context, query *ListValueModelsParams, opts ...RequestOption) (*Page[ValueModelSummary, ValueModelList], error) {
@@ -365,6 +508,13 @@ type CostService struct {
 
 // ListLineItems lists cost line items, and returns the first page. Walk
 // every line item of every page with [Page.All]. A nil query sends none.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call ListLineItems again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
 //
 // Needs the read scope. Operation listCostLineItems.
 func (s *CostService) ListLineItems(ctx context.Context, query *ListCostLineItemsParams, opts ...RequestOption) (*Page[CostLineItem, CostLineItemList], error) {
@@ -490,6 +640,28 @@ type CalculationsService struct {
 	client *Client
 }
 
+// List lists the workspace's calculations across clients, without
+// snapshots, and returns the first page. Walk every calculation of every
+// page with [Page.All]. A nil query sends none. Month takes YYYY-MM and
+// matches only a period that is exactly that calendar month in UTC.
+//
+// Calculations come latest period first, then newest first. IsCurrent is
+// decided among each client's own calculations for the period, before any
+// filter or page applies.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
+//
+// Needs the read scope. Operation listCalculations.
+func (s *CalculationsService) List(ctx context.Context, query *ListCalculationsParams, opts ...RequestOption) (*Page[CalculationSummary, WorkspaceCalculationList], error) {
+	cl, err := opCall("listCalculations")
+	return sendList(ctx, s.client, cl, err, query, opts, func(b *WorkspaceCalculationList) []CalculationSummary { return b.Data })
+}
+
 // CreateForClient freezes a client's ROI for an ended period as a draft
 // calculation. An API key with the write scope may create a draft;
 // validating and publishing it need a signed-in user, and this SDK does
@@ -538,6 +710,23 @@ func (s *CalculationsService) Delete(ctx context.Context, id string, opts ...Req
 // client.Reports.
 type ReportsService struct {
 	client *Client
+}
+
+// List lists the workspace's reports across calculations, newest first,
+// each without its disclosures, and returns the first page. Walk every
+// report of every page with [Page.All]. A nil query sends none.
+//
+// Set Page for a numbered page: the page's Body then holds Page and Total.
+// Only that first page is counted; every later page of a walk continues by
+// cursor from it, and its Body.Page and Body.Total are nil. To show another
+// numbered page, call List again with its Page rather than
+// [Page.NextPage]. A page number past the end has no items, and the walk
+// ends there.
+//
+// Needs the read scope. Operation listReports.
+func (s *ReportsService) List(ctx context.Context, query *ListReportsParams, opts ...RequestOption) (*Page[ReportSummary, WorkspaceReportList], error) {
+	cl, err := opCall("listReports")
+	return sendList(ctx, s.client, cl, err, query, opts, func(b *WorkspaceReportList) []ReportSummary { return b.Data })
 }
 
 // CreateForCalculation composes a report on a published calculation, with
@@ -618,6 +807,14 @@ func (s *DashboardService) Get(ctx context.Context, query GetDashboardParams, op
 // first page; walk every client of every page with [Page.All]. A nil query
 // sends none.
 //
+// Today is the date renewal dates are rolled against and Window is
+// measured from; left nil, it is the current UTC date, which Body.Today
+// echoes. A walk sends the first page's Today on every later page, so it
+// reads one date even across midnight UTC; to page by number instead, set
+// that Today yourself with each Page. RenewalTerm is sent as one parameter
+// per item; a non-nil empty slice is refused before sending, because
+// leaving it nil means every term.
+//
 // Needs the read scope. Operation listRenewals.
 func (s *DashboardService) ListRenewals(ctx context.Context, query *ListRenewalsParams, opts ...RequestOption) (*Page[Renewal, RenewalList], error) {
 	cl, err := opCall("listRenewals")
@@ -636,6 +833,55 @@ type HealthService struct {
 func (s *HealthService) Get(ctx context.Context, opts ...RequestOption) (*Health, error) {
 	cl, err := opCall("getHealth")
 	return send[Health](ctx, s.client, cl, err, idempotentOptions(opts))
+}
+
+// WorkspaceService groups the operation on the workspace the credential
+// belongs to. Reach it as client.Workspace.
+type WorkspaceService struct {
+	client *Client
+}
+
+// Get reads the workspace the credential belongs to: its name, its
+// currency and when it was created.
+//
+// Needs the read scope. Operation getWorkspace.
+func (s *WorkspaceService) Get(ctx context.Context, opts ...RequestOption) (*Workspace, error) {
+	cl, err := opCall("getWorkspace")
+	return send[Workspace](ctx, s.client, cl, err, idempotentOptions(opts))
+}
+
+// OnboardingService groups the operations on the guided setup's progress.
+// Reach it as client.Onboarding.
+type OnboardingService struct {
+	client *Client
+}
+
+// Get reads the guided setup's progress: the five steps in their fixed
+// order, each with whether the workspace's data completes it and when it
+// was skipped, and CurrentStep, the first step neither completed nor
+// skipped. This is the read for the guided setup's progress.
+//
+// Needs the read scope. Operation getOnboarding.
+func (s *OnboardingService) Get(ctx context.Context, opts ...RequestOption) (*Onboarding, error) {
+	cl, err := opCall("getOnboarding")
+	return send[Onboarding](ctx, s.client, cl, err, idempotentOptions(opts))
+}
+
+// SetSkippedSteps replaces the set of skipped steps, and returns the whole
+// progress. body.Steps replaces the whole set: a step left out is no
+// longer skipped, and a step already skipped keeps its SkippedAt.
+//
+// To clear every skip, pass an empty, non-nil slice, such as
+// []OnboardingStep{}. A nil Steps is sent as null, which the API refuses
+// with 400.
+//
+// Retried, because a repeat leaves the same set.
+//
+// Needs the write scope. Operation setOnboardingSkippedSteps.
+func (s *OnboardingService) SetSkippedSteps(ctx context.Context, body OnboardingSkippedStepsSet, opts ...RequestOption) (*Onboarding, error) {
+	cl, err := opCall("setOnboardingSkippedSteps")
+	cl.body = body
+	return send[Onboarding](ctx, s.client, cl, err, idempotentOptions(opts))
 }
 
 // Format prints the service for every fmt verb without the client it
@@ -687,3 +933,11 @@ func (s HealthService) Format(f fmt.State, _ rune) { formatService(f, "HealthSer
 func formatService(f fmt.State, name string) {
 	_, _ = fmt.Fprintf(f, "allisall.%s{}", name)
 }
+
+// Format prints the service for every fmt verb without the client it
+// belongs to, which holds the credential.
+func (s WorkspaceService) Format(f fmt.State, _ rune) { formatService(f, "WorkspaceService") }
+
+// Format prints the service for every fmt verb without the client it
+// belongs to, which holds the credential.
+func (s OnboardingService) Format(f fmt.State, _ rune) { formatService(f, "OnboardingService") }

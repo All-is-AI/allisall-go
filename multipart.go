@@ -38,7 +38,9 @@ type ImportUpload struct {
 	File io.ReadSeeker
 	// Filename is the file name the import records. When empty, it is the
 	// base of the file's own name, for a File with a Name() string method
-	// such as an *os.File, and otherwise upload.csv.
+	// such as an *os.File, and otherwise upload.csv. A name longer than 255
+	// characters, counted after any directory part separated by /, is
+	// refused with 400 too_long.
 	Filename string
 }
 

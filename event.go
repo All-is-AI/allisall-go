@@ -164,12 +164,18 @@ const (
 	ErrorCodeReportShared                 ErrorCode = "report_shared"
 	ErrorCodeReportNotShared              ErrorCode = "report_not_shared"
 	ErrorCodeAPIKeyRevoked                ErrorCode = "api_key_revoked"
+	ErrorCodeInviteExpired                ErrorCode = "invite_expired"
+	ErrorCodeInviteUsed                   ErrorCode = "invite_used"
+	ErrorCodeInviteRevoked                ErrorCode = "invite_revoked"
+	ErrorCodeInviteEmailMismatch          ErrorCode = "invite_email_mismatch"
+	ErrorCodeEmailHasWorkspace            ErrorCode = "email_has_workspace"
 	ErrorCodePayloadTooLarge              ErrorCode = "payload_too_large"
 	ErrorCodeURITooLong                   ErrorCode = "uri_too_long"
 	ErrorCodeUnsupportedMediaType         ErrorCode = "unsupported_media_type"
 	ErrorCodeIdempotencyKeyReused         ErrorCode = "idempotency_key_reused"
 	ErrorCodeRateLimited                  ErrorCode = "rate_limited"
 	ErrorCodeInternalError                ErrorCode = "internal_error"
+	ErrorCodeUpstreamFailed               ErrorCode = "upstream_failed"
 )
 
 // FieldErrorCode is the code of one field-level problem, or of an ingest

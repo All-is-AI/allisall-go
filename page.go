@@ -173,6 +173,9 @@ func (l *lister[T, B, Q]) fetch(ctx context.Context, q Q, at int, extra []Reques
 	page.Data = l.data(&page.Body)
 	if hasMore {
 		nq := nextQuery(q, cursor)
+		if l.call.op != nil && l.call.op.id == pinnedEchoOperation {
+			pinEcho(&nq, &page.Body)
+		}
 		page.next = func(ctx context.Context, extra []RequestOption) (*Page[T, B], error) {
 			return l.fetch(ctx, nq, at+1, extra)
 		}
@@ -227,6 +230,33 @@ func checkCursorField[Q any]() error {
 		}
 	}
 	return fmt.Errorf("allisall: list query %s has no Cursor field", t)
+}
+
+// pinnedEchoOperation and pinnedEchoField name the one query member a walk
+// pins to its first page's answer: on the renewals list, Today. When the
+// caller's query leaves it nil, every later page sends the Today the first
+// page's body echoed, so a walk that crosses UTC midnight reads every page
+// under one date. A test holds both names to the spec.
+const (
+	pinnedEchoOperation = "listRenewals"
+	pinnedEchoField     = "Today"
+)
+
+// pinEcho sets q's pinned field, a *string, to the body's field of the same
+// name when q leaves it nil and the body holds a value. A later page's
+// query already holds it, so every page after the first sends the first
+// page's value.
+func pinEcho[Q, B any](q *Q, body *B) {
+	field := reflect.ValueOf(q).Elem().FieldByName(pinnedEchoField)
+	if !field.IsValid() || field.Type() != stringPointerType || !field.IsNil() {
+		return
+	}
+	echoed := reflect.ValueOf(body).Elem().FieldByName(pinnedEchoField)
+	if !echoed.IsValid() || echoed.Kind() != reflect.String || echoed.String() == "" {
+		return
+	}
+	value := echoed.String()
+	field.Set(reflect.ValueOf(&value))
 }
 
 // nextQuery returns q with Cursor set to cursor and Page, when q has it,

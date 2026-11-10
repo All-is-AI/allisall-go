@@ -71,14 +71,16 @@ type methodRow struct {
 }
 
 const (
-	clientJSON = `{"client_key":"acme","created_at":"2026-10-28T12:00:00.123456Z","id":"client-1","name":"Acme","notes":"","renewal_date":null,"status":"active"}`
-	agentJSON  = `{"agent_key":"bot","created_at":"2026-10-28T12:00:00Z","framework":"","id":"agent-1","name":"Bot","status":"active","version":""}`
-	modelJSON  = `{"client_id":"client-1","created_at":"2026-10-28T12:00:00Z","currency":"USD","id":"model-1","line_items":[{"id":"line-1","label":"Ticket","outcome_type":"ticket_resolved","position":1,"provenance_note":"","unit_value":` + exactMoney + `}],"name":"Support","status":"active","updated_at":"2026-10-28T12:00:00Z","version":3}`
-	lineJSON   = `{"created_at":"2026-10-28T12:00:00Z","currency":"USD","end_date":null,"id":"line-1","label":"Hosting","monthly_amount":` + exactMoney + `,"start_date":"2026-09-01","target":{"id":"client-1","kind":"client","name":"Acme"},"updated_at":"2026-10-28T12:00:00Z"}`
-	calcJSON   = `{"client_id":"client-1","cost_total":` + exactMoney + `,"created_at":"2026-10-28T12:00:00Z","currency":"USD","id":"calc-1","minor_units":2,"period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"published_at":null,"ratios":{"roi":1.5,"undefined_reason":null,"value_to_cost":2.5},"state":"draft","validated_at":null,"value_total":null}`
-	reportJSON = `{"calculation_id":"calc-1","client_name":"Acme","created_at":"2026-10-28T12:00:00Z","disclosures":[],"id":"report-1","note":"","share_token":null,"workspace_name":"Partner"}`
+	clientJSON         = `{"client_key":"acme","created_at":"2026-10-28T12:00:00.123456Z","id":"client-1","name":"Acme","notes":"","renewal_date":null,"status":"active"}`
+	agentJSON          = `{"agent_key":"bot","created_at":"2026-10-28T12:00:00Z","framework":"","id":"agent-1","name":"Bot","status":"active","version":""}`
+	modelJSON          = `{"client_id":"client-1","created_at":"2026-10-28T12:00:00Z","currency":"USD","id":"model-1","line_items":[{"id":"line-1","label":"Ticket","outcome_type":"ticket_resolved","position":1,"provenance_note":"","unit_value":` + exactMoney + `}],"name":"Support","status":"active","updated_at":"2026-10-28T12:00:00Z","version":3}`
+	lineJSON           = `{"created_at":"2026-10-28T12:00:00Z","currency":"USD","end_date":null,"id":"line-1","label":"Hosting","monthly_amount":` + exactMoney + `,"start_date":"2026-09-01","target":{"id":"client-1","kind":"client","name":"Acme"},"updated_at":"2026-10-28T12:00:00Z"}`
+	calcJSON           = `{"client_id":"client-1","cost_total":` + exactMoney + `,"created_at":"2026-10-28T12:00:00Z","currency":"USD","id":"calc-1","minor_units":2,"period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"published_at":null,"ratios":{"roi":1.5,"undefined_reason":null,"value_to_cost":2.5},"state":"draft","validated_at":null,"value_total":null}`
+	workspaceEventJSON = `{"agent_id":"agent-1","agent_name":"Bot","category":"task","client_id":"client-1","client_key":null,"client_name":"Acme","cost":null,"created_at":"2026-10-01T12:00:01Z","event_type":"triage","id":"event-1","import_batch_id":"import-1","quantity":1,"source":"csv","timestamp":"2026-09-02T00:00:00Z"}`
+	importJSON         = `{"accepted":2,"created_at":"2026-10-28T12:00:00Z","duplicates":1,"filename":"august.csv","id":"import-1","mapping":{"columns":{"agent_key":"Agent","timestamp":"Time"},"constants":{"category":"task"},"delimiter":";","timezone":"Asia/Tokyo"},"rejected":0,"total_rows":3}`
+	reportJSON         = `{"calculation_id":"calc-1","client_id":"client-1","client_name":"Acme Logistics","created_at":"2026-10-28T12:00:00Z","disclosures":[],"id":"report-1","letterhead_client_name":"Acme","letterhead_workspace_name":"Partner","note":"","period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"share_token":null,"state":"draft"}`
 	// summaryJSON is a report as the list returns it, without disclosures.
-	summaryJSON = `{"calculation_id":"calc-1","client_name":"Acme","created_at":"2026-10-28T12:00:00Z","id":"report-1","note":"","share_token":null,"workspace_name":"Partner"}`
+	summaryJSON = `{"calculation_id":"calc-1","client_id":"client-1","client_name":"Acme Logistics","created_at":"2026-10-28T12:00:00Z","id":"report-1","letterhead_client_name":"Acme","letterhead_workspace_name":"Partner","note":"","period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"share_token":null,"state":"draft"}`
 	tableJSON   = `{"currency":"USD","models":[{"input_per_1k":` + exactMoney + `,"model":"gpt","output_per_1k":12}]}`
 	lastPage    = `"has_more":false,"next_cursor":null`
 )
@@ -115,6 +117,48 @@ func methodRows() []methodRow {
 			resp: `{"client_id":"client-17","currency":"USD","data":[{"agent_id":"agent-1","agent_name":"Bot","category":"outcome","cost":` + exactMoney +
 				`,"event_type":"ticket_resolved","id":"event-1","quantity":2,"source":"api","timestamp":"2026-09-02T00:00:00.000001Z"}],` + lastPage +
 				`,"page":null,"period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"total":41}`,
+		},
+		{
+			id: "listEvents", method: "Events.List",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Events.List(ctx, &ListEventsParams{Source: new(EventSourceCSV), ImportBatchID: new("import-1"), Limit: new(5)})
+			},
+			verb: "GET", url: "/v1/events?source=csv&import_batch_id=import-1&limit=5",
+			resp: `{"as_of":"2026-10-02T00:00:00Z","client_id":null,"currency":"USD","data":[` + workspaceEventJSON + `],` + lastPage +
+				`,"page":null,"period":{"from":null,"to":null},"total":null,"total_capped":null}`,
+		},
+		{
+			id: "getEventSummary", method: "Events.GetSummary",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Events.GetSummary(ctx, GetEventSummaryParams{From: from, To: to, AsOf: new(time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC))})
+			},
+			verb: "GET", url: "/v1/events/summary?" + periodQuery + "&as_of=2026-10-02T00%3A00%3A00Z",
+			resp: `{"as_of":"2026-10-02T00:00:00Z","categories":[{"category":"task","count":3}],"client_id":null,"days":[{"count":3,"start":"2026-09-01T00:00:00Z"}],"period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"total":3}`,
+		},
+		{
+			id: "listEventArrivals", method: "Events.ListArrivals",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Events.ListArrivals(ctx, &ListEventArrivalsParams{Since: new(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)), Limit: new(1)})
+			},
+			verb: "GET", url: "/v1/events/arrivals?since=2026-10-01T12%3A00%3A00Z&limit=1",
+			resp: `{"as_of":"2026-10-02T00:00:00Z","client_id":null,"count":7,"count_capped":false,"currency":"USD","data":[` + workspaceEventJSON + `],` + lastPage +
+				`,"period":{"from":null,"to":null},"since":"2026-10-01T12:00:00Z"}`,
+		},
+		{
+			id: "listImports", method: "Imports.List",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Imports.List(ctx, &ListImportsParams{Limit: new(5)})
+			},
+			verb: "GET", url: "/v1/imports?limit=5",
+			resp: listJSON(`{"accepted":2,"created_at":"2026-10-28T12:00:00Z","duplicates":1,"filename":"august.csv","id":"import-1","rejected":0,"total_rows":3}`),
+		},
+		{
+			id: "getImport", method: "Imports.Get",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Imports.Get(ctx, "import-1")
+			},
+			verb: "GET", url: "/v1/imports/import-1",
+			resp: importJSON,
 		},
 		{
 			id: "previewImport", method: "Imports.Preview",
@@ -421,6 +465,14 @@ func methodRows() []methodRow {
 			resp: listJSON(`{"client_id":"client-19","cost_total":` + exactMoney + `,"id":"calc-1","is_current":true,"state":"published"}`),
 		},
 		{
+			id: "listCalculations", method: "Calculations.List",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Calculations.List(ctx, &ListCalculationsParams{ClientID: new("client-19"), State: new(CalculationStatePublished), Month: new("2026-08"), Limit: new(5)})
+			},
+			verb: "GET", url: "/v1/calculations?client_id=client-19&state=published&month=2026-08&limit=5",
+			resp: listJSON(`{"client_id":"client-19","client_name":"Acme Logistics","cost_total":` + exactMoney + `,"coverage_findings":2,"id":"calc-1","is_current":true,"state":"published"}`),
+		},
+		{
 			id: "getCalculation", method: "Calculations.Get",
 			run: func(ctx context.Context, c *Client) (any, error) {
 				return c.Calculations.Get(ctx, "calc-3")
@@ -452,20 +504,28 @@ func methodRows() []methodRow {
 			resp: listJSON(summaryJSON),
 		},
 		{
+			id: "listReports", method: "Reports.List",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Reports.List(ctx, &ListReportsParams{ClientID: new("client-19"), State: new(ReportStateShared), Limit: new(5)})
+			},
+			verb: "GET", url: "/v1/reports?client_id=client-19&state=shared&limit=5",
+			resp: listJSON(summaryJSON),
+		},
+		{
 			id: "getReport", method: "Reports.Get",
 			run: func(ctx context.Context, c *Client) (any, error) {
 				return c.Reports.Get(ctx, "report-3")
 			},
 			verb: "GET", url: "/v1/reports/report-3",
-			resp: `{"calculation_id":"calc-1","client_name":"Acme","created_at":"2026-10-28T12:00:00Z","disclosures":[],"id":"report-3","note":"","preview":null,"workspace_name":"Partner"}`,
+			resp: `{"calculation_id":"calc-1","client_id":"client-1","client_name":"Acme Logistics","created_at":"2026-10-28T12:00:00Z","disclosures":[],"id":"report-3","letterhead_client_name":"Acme","letterhead_workspace_name":"Partner","note":"","period":{"from":"2026-09-01T00:00:00Z","to":"2026-10-01T00:00:00Z"},"preview":null,"state":"draft"}`,
 		},
 		{
 			id: "updateReport", method: "Reports.Update",
 			run: func(ctx context.Context, c *Client) (any, error) {
-				return c.Reports.Update(ctx, "report-4", ReportPatch{Note: NewNullable("Thanks")})
+				return c.Reports.Update(ctx, "report-4", ReportPatch{LetterheadClientName: new("Acme Holdings"), LetterheadWorkspaceName: new("Partner Co"), Note: NewNullable("Thanks")})
 			},
 			verb: "PATCH", url: "/v1/reports/report-4",
-			body: `{"note":"Thanks"}`,
+			body: `{"letterhead_client_name":"Acme Holdings","letterhead_workspace_name":"Partner Co","note":"Thanks"}`,
 			resp: reportJSON,
 		},
 		{
@@ -499,8 +559,38 @@ func methodRows() []methodRow {
 			verb: "GET", url: "/healthz",
 			resp: `{"status":"ok","version":"1.2.3"}`,
 		},
+		{
+			id: "getWorkspace", method: "Workspace.Get",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Workspace.Get(ctx)
+			},
+			verb: "GET", url: "/v1/workspace",
+			resp: workspaceJSON,
+		},
+		{
+			id: "getOnboarding", method: "Onboarding.Get",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Onboarding.Get(ctx)
+			},
+			verb: "GET", url: "/v1/onboarding",
+			resp: onboardingJSON,
+		},
+		{
+			id: "setOnboardingSkippedSteps", method: "Onboarding.SetSkippedSteps",
+			run: func(ctx context.Context, c *Client) (any, error) {
+				return c.Onboarding.SetSkippedSteps(ctx, OnboardingSkippedStepsSet{Steps: []OnboardingStep{OnboardingStepAddAgent, OnboardingStepBringInData}})
+			},
+			verb: "PUT", url: "/v1/onboarding/skipped-steps",
+			body: `{"steps":["add_agent","bring_in_data"]}`,
+			resp: onboardingJSON,
+		},
 	}
 }
+
+const (
+	workspaceJSON  = `{"created_at":"2026-10-28T12:00:00Z","currency":"JPY","id":"workspace-1","minor_units":0,"name":"Acme AI"}`
+	onboardingJSON = `{"current_step":"price_outcomes","has_published":false,"steps":[{"completed":true,"skipped_at":null,"step":"add_client"},{"completed":false,"skipped_at":"2026-10-28T12:00:00Z","step":"add_agent"}]}`
+)
 
 // answer responds to every request with a row's response, under the
 // status its operation documents.
@@ -754,8 +844,8 @@ func TestEveryListMethodWalksItsPages(t *testing.T) {
 			}
 		})
 	}
-	if lists != 11 {
-		t.Errorf("walked %d list methods, want 11", lists)
+	if lists != 16 {
+		t.Errorf("walked %d list methods, want 16", lists)
 	}
 }
 
@@ -788,9 +878,9 @@ func testClient(t *testing.T) *Client {
 	return c
 }
 
-// TestTheServicesAreTheTwelveGroups checks the client's service fields:
-// the twelve groups, each set.
-func TestTheServicesAreTheTwelveGroups(t *testing.T) {
+// TestTheServicesAreTheFourteenGroups checks the client's service fields:
+// the fourteen groups, each set.
+func TestTheServicesAreTheFourteenGroups(t *testing.T) {
 	c := testClient(t)
 	var groups []string
 	v := reflect.ValueOf(c).Elem()
@@ -804,7 +894,7 @@ func TestTheServicesAreTheTwelveGroups(t *testing.T) {
 			t.Errorf("Client.%s is nil", f.Name)
 		}
 	}
-	want := []string{"Agents", "Analytics", "Calculations", "Clients", "Cost", "Dashboard", "Events", "Health", "Imports", "OutcomeTypes", "Reports", "ValueModels"}
+	want := []string{"Agents", "Analytics", "Calculations", "Clients", "Cost", "Dashboard", "Events", "Health", "Imports", "Onboarding", "OutcomeTypes", "Reports", "ValueModels", "Workspace"}
 	slices.Sort(groups)
 	if !slices.Equal(groups, want) {
 		t.Errorf("groups = %v, want %v", groups, want)
@@ -963,6 +1053,9 @@ func TestMethodNameCanFail(t *testing.T) {
 		{"listCostLineItems", "Cost", "/v1/cost-line-items", "Cost.ListLineItems"},
 		{"getValueModel", "Value models", "/v1/value-models/{id}", "ValueModels.Get"},
 		{"createReport", "Reports", "/v1/calculations/{id}/reports", "Reports.CreateForCalculation"},
+		{"getWorkspace", "Workspace", "/v1/workspace", "Workspace.Get"},
+		{"getOnboarding", "Onboarding", "/v1/onboarding", "Onboarding.Get"},
+		{"setOnboardingSkippedSteps", "Onboarding", "/v1/onboarding/skipped-steps", "Onboarding.SetSkippedSteps"},
 	} {
 		if got := methodName(tt.id, tt.tag, tt.path); got != tt.want {
 			t.Errorf("methodName(%s) = %s, want %s", tt.id, got, tt.want)
@@ -1037,10 +1130,14 @@ func TestAReportListItemIsASummary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []ReportSummary{
-		{CalculationID: "calc-1", ClientName: "Acme", CreatedAt: fakeNow, ID: "report-1", WorkspaceName: "Partner"},
-		{CalculationID: "calc-1", ClientName: "Acme", CreatedAt: fakeNow, ID: "report-2", WorkspaceName: "Partner"},
+	period := Period{From: new(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)), To: new(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))}
+	summary := func(id string) ReportSummary {
+		return ReportSummary{
+			CalculationID: "calc-1", ClientID: "client-1", ClientName: "Acme Logistics", CreatedAt: fakeNow, ID: id,
+			LetterheadClientName: "Acme", LetterheadWorkspaceName: "Partner", Period: period, State: ReportStateDraft,
+		}
 	}
+	want := []ReportSummary{summary("report-1"), summary("report-2")}
 	if !reflect.DeepEqual(page.Data, want) {
 		t.Errorf("data = %+v, want %+v", page.Data, want)
 	}
@@ -1096,5 +1193,178 @@ func TestAPriceTableIsSentBackThroughTheMethods(t *testing.T) {
 	want := `{"currency":"USD","models":[{"input_per_1k":0.0000001,"model":"a","output_per_1k":` + exactMoney + `}]}`
 	if got := string(h.transport.get(1).body); got != want {
 		t.Errorf("body = %s\nwant   %s", got, want)
+	}
+}
+
+// TestSkippedStepsSendANilSliceAsNull pins SetSkippedSteps's doc comment to
+// what the SDK sends: a nil Steps is sent as null, which the API refuses,
+// and an empty, non-nil slice as [], which clears every skip.
+func TestSkippedStepsSendANilSliceAsNull(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		steps []OnboardingStep
+		want  string
+	}{
+		{"nil", nil, `{"steps":null}`},
+		{"empty", []OnboardingStep{}, `{"steps":[]}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+				return newResponse(200, "application/json", onboardingJSON), nil
+			})
+			if _, err := h.client.Onboarding.SetSkippedSteps(context.Background(), OnboardingSkippedStepsSet{Steps: tt.steps}); err != nil {
+				t.Fatal(err)
+			}
+			if got := string(h.transport.get(0).body); got != tt.want {
+				t.Errorf("sent %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAStepTheSDKDoesNotListIsKept decodes a progress whose current step,
+// and one step's step, the SDK does not list: each is kept as it arrived,
+// and Valid reports it unknown.
+func TestAStepTheSDKDoesNotListIsKept(t *testing.T) {
+	const later = "a_step_added_later"
+	h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+		return newResponse(200, "application/json", `{"current_step":"`+later+`","has_published":false,"steps":[{"completed":true,"skipped_at":null,"step":"add_client"},{"completed":false,"skipped_at":null,"step":"`+later+`"}]}`), nil
+	})
+	got, err := h.client.Onboarding.Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CurrentStep == nil || *got.CurrentStep != later || got.CurrentStep.Valid() {
+		t.Errorf("CurrentStep = %v, want %s kept and not Valid", got.CurrentStep, later)
+	}
+	if len(got.Steps) != 2 || got.Steps[0].Step != OnboardingStepAddClient || got.Steps[1].Step != later {
+		t.Errorf("Steps = %+v, want add_client then %s", got.Steps, later)
+	}
+}
+
+// TestANullCurrentStepIsNil decodes a progress with every step done.
+func TestANullCurrentStepIsNil(t *testing.T) {
+	h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+		return newResponse(200, "application/json", `{"current_step":null,"has_published":true,"steps":[]}`), nil
+	})
+	got, err := h.client.Onboarding.Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CurrentStep != nil {
+		t.Errorf("CurrentStep = %v, want nil", *got.CurrentStep)
+	}
+}
+
+// TestValueModelArchivedAt reads archived_at as an instant, and null as nil.
+func TestValueModelArchivedAt(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name, value string
+		want        *time.Time
+	}{
+		{"archived", `"2026-08-02T13:15:00+09:00"`, new(time.Date(2026, 8, 2, 4, 15, 0, 0, time.UTC))},
+		{"active", `null`, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+				return newResponse(200, "application/json", `{"id":"model-2","archived_at":`+tc.value+`}`), nil
+			})
+			model, err := h.client.ValueModels.Get(ctx, "model-2")
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch {
+			case tc.want == nil && model.ArchivedAt != nil:
+				t.Errorf("ArchivedAt = %v, want nil", *model.ArchivedAt)
+			case tc.want != nil && (model.ArchivedAt == nil || !model.ArchivedAt.Equal(*tc.want)):
+				t.Errorf("ArchivedAt = %v, want %v", model.ArchivedAt, *tc.want)
+			}
+		})
+	}
+}
+
+// TestAReportStateTheSDKDoesNotListIsKept decodes a state the generated
+// constants do not name, and keeps it as the server sent it.
+func TestAReportStateTheSDKDoesNotListIsKept(t *testing.T) {
+	archived := strings.Replace(summaryJSON, `"state":"draft"`, `"state":"archived"`, 1)
+	h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+		return newResponse(200, "application/json", `{"data":[`+archived+`,`+summaryJSON+`],`+lastPage+`}`), nil
+	})
+	page, err := h.client.Reports.List(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Data) != 2 {
+		t.Fatalf("%d items, want 2", len(page.Data))
+	}
+	if got := page.Data[0].State; got != ReportState("archived") || got.Valid() {
+		t.Errorf("State = %q, Valid() = %t; want the unlisted \"archived\", not valid", got, got.Valid())
+	}
+	if got := page.Data[1].State; got != ReportStateDraft || !got.Valid() {
+		t.Errorf("State = %q, want %q", got, ReportStateDraft)
+	}
+}
+
+// TestAReadMappingIsSentBackAsTheNextCommitsMapping reads an import, turns
+// its mapping into a request's with ToImportMapping, and commits with it:
+// the mapping part holds the four members as they were read.
+func TestAReadMappingIsSentBackAsTheNextCommitsMapping(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, func(n int, _ *http.Request, _ recorded) (*http.Response, error) {
+		if n == 0 {
+			return newResponse(200, "application/json", importJSON), nil
+		}
+		return newResponse(200, "application/json", `{"accepted":0,"batch_id":"import-2","duplicates":0,"errors":[],"errors_truncated":false,"rejected":0}`), nil
+	})
+	read, err := h.client.Imports.Get(ctx, "import-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapping := read.Mapping.ToImportMapping()
+	if _, err := h.client.Imports.Commit(ctx, ImportUpload{Mapping: mapping, File: strings.NewReader("Time;Agent\n")}); err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"columns":{"agent_key":"Agent","timestamp":"Time"},"constants":{"category":"task"},"delimiter":";","timezone":"Asia/Tokyo"}`
+	if body := string(h.transport.get(1).body); !strings.Contains(body, want) {
+		t.Errorf("the commit's mapping part is not %s:\n%s", want, body)
+	}
+	// A copy: changing the result leaves the read mapping as it was.
+	(*mapping.Columns)["timestamp"] = "Other"
+	if read.Mapping.Columns["timestamp"] != "Time" {
+		t.Errorf("ToImportMapping shares its Columns with the read mapping")
+	}
+}
+
+// TestADelimiterTheSDKDoesNotListIsKept decodes a delimiter no constant
+// names, and sends it back as it is.
+func TestADelimiterTheSDKDoesNotListIsKept(t *testing.T) {
+	unlisted := strings.Replace(importJSON, `"delimiter":";"`, `"delimiter":"|"`, 1)
+	h := newHarness(t, func(int, *http.Request, recorded) (*http.Response, error) {
+		return newResponse(200, "application/json", unlisted), nil
+	})
+	read, err := h.client.Imports.Get(context.Background(), "import-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read.Mapping.Delimiter != "|" {
+		t.Errorf("Delimiter = %q, want the unlisted \"|\"", read.Mapping.Delimiter)
+	}
+	if got := read.Mapping.ToImportMapping().Delimiter; got == nil || *got != "|" {
+		t.Errorf("ToImportMapping's Delimiter = %v, want \"|\"", got)
+	}
+}
+
+// TestToImportMappingSendsNoNull turns a mapping whose maps are nil, as a
+// caller-built AppliedImportMapping may hold, into one whose JSON has
+// empty objects rather than null.
+func TestToImportMappingSendsNoNull(t *testing.T) {
+	got, err := json.Marshal(AppliedImportMapping{Timezone: "UTC", Delimiter: ImportDelimiterComma}.ToImportMapping())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"columns":{},"constants":{},"delimiter":",","timezone":"UTC"}`
+	if string(got) != want {
+		t.Errorf("ToImportMapping marshals as %s, want %s", got, want)
 	}
 }

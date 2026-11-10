@@ -213,6 +213,33 @@ func (e HealthUnavailable) Valid() bool {
 	}
 }
 
+// Defines values for OnboardingStep.
+const (
+	OnboardingStepAddAgent               OnboardingStep = "add_agent"
+	OnboardingStepAddClient              OnboardingStep = "add_client"
+	OnboardingStepBringInData            OnboardingStep = "bring_in_data"
+	OnboardingStepCreateDraftCalculation OnboardingStep = "create_draft_calculation"
+	OnboardingStepPriceOutcomes          OnboardingStep = "price_outcomes"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingStep enum.
+func (e OnboardingStep) Valid() bool {
+	switch e {
+	case OnboardingStepAddAgent:
+		return true
+	case OnboardingStepAddClient:
+		return true
+	case OnboardingStepBringInData:
+		return true
+	case OnboardingStepCreateDraftCalculation:
+		return true
+	case OnboardingStepPriceOutcomes:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PortfolioExclusionReason.
 const (
 	PortfolioExclusionReasonNeverPublished         PortfolioExclusionReason = "never_published"
@@ -234,6 +261,90 @@ func (e PortfolioExclusionReason) Valid() bool {
 	case PortfolioExclusionReasonPublishedOffGrid:
 		return true
 	case PortfolioExclusionReasonZeroCost:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RenewalTerm.
+const (
+	RenewalTermAnnual  RenewalTerm = "annual"
+	RenewalTermMonthly RenewalTerm = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the RenewalTerm enum.
+func (e RenewalTerm) Valid() bool {
+	switch e {
+	case RenewalTermAnnual:
+		return true
+	case RenewalTermMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RenewalTermFilter.
+const (
+	RenewalTermFilterAnnual  RenewalTermFilter = "annual"
+	RenewalTermFilterMonthly RenewalTermFilter = "monthly"
+	RenewalTermFilterNone    RenewalTermFilter = "none"
+)
+
+// Valid indicates whether the value is a known member of the RenewalTermFilter enum.
+func (e RenewalTermFilter) Valid() bool {
+	switch e {
+	case RenewalTermFilterAnnual:
+		return true
+	case RenewalTermFilterMonthly:
+		return true
+	case RenewalTermFilterNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RenewalWindow.
+const (
+	RenewalWindowNext30Days RenewalWindow = "next_30_days"
+	RenewalWindowNext90Days RenewalWindow = "next_90_days"
+	RenewalWindowOverdue    RenewalWindow = "overdue"
+	RenewalWindowUpcoming   RenewalWindow = "upcoming"
+)
+
+// Valid indicates whether the value is a known member of the RenewalWindow enum.
+func (e RenewalWindow) Valid() bool {
+	switch e {
+	case RenewalWindowNext30Days:
+		return true
+	case RenewalWindowNext90Days:
+		return true
+	case RenewalWindowOverdue:
+		return true
+	case RenewalWindowUpcoming:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReportState.
+const (
+	ReportStateDraft   ReportState = "draft"
+	ReportStateRevoked ReportState = "revoked"
+	ReportStateShared  ReportState = "shared"
+)
+
+// Valid indicates whether the value is a known member of the ReportState enum.
+func (e ReportState) Valid() bool {
+	switch e {
+	case ReportStateDraft:
+		return true
+	case ReportStateRevoked:
+		return true
+	case ReportStateShared:
 		return true
 	default:
 		return false
@@ -369,6 +480,51 @@ func (e GetDashboardParamsDir) Valid() bool {
 	}
 }
 
+// Defines values for ListEventsParamsSort.
+const (
+	ListEventsParamsSortAgentName    ListEventsParamsSort = "agent_name"
+	ListEventsParamsSortAttributedBy ListEventsParamsSort = "attributed_by"
+	ListEventsParamsSortCost         ListEventsParamsSort = "cost"
+	ListEventsParamsSortSource       ListEventsParamsSort = "source"
+	ListEventsParamsSortTimestamp    ListEventsParamsSort = "timestamp"
+)
+
+// Valid indicates whether the value is a known member of the ListEventsParamsSort enum.
+func (e ListEventsParamsSort) Valid() bool {
+	switch e {
+	case ListEventsParamsSortAgentName:
+		return true
+	case ListEventsParamsSortAttributedBy:
+		return true
+	case ListEventsParamsSortCost:
+		return true
+	case ListEventsParamsSortSource:
+		return true
+	case ListEventsParamsSortTimestamp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListEventsParamsDir.
+const (
+	ListEventsParamsDirAsc  ListEventsParamsDir = "asc"
+	ListEventsParamsDirDesc ListEventsParamsDir = "desc"
+)
+
+// Valid indicates whether the value is a known member of the ListEventsParamsDir enum.
+func (e ListEventsParamsDir) Valid() bool {
+	switch e {
+	case ListEventsParamsDirAsc:
+		return true
+	case ListEventsParamsDirDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Agent An agent: a registry entry for something that delivers value. Ingest creates agents it has not seen.
 type Agent struct {
 	// AgentKey The external identity events carry. Immutable through this API.
@@ -402,15 +558,19 @@ type AgentCostLine struct {
 // AgentCreate defines model for AgentCreate.
 type AgentCreate struct {
 	// AgentKey 1 to 200 characters, counted as sent. Not trimmed: a key with white space (the Unicode `White_Space` property) at either end, or white space only, is refused with `invalid_format`. Unique in the workspace. Cannot change later.
-	AgentKey  string  `json:"agent_key"`
+	AgentKey string `json:"agent_key"`
+
+	// Framework Free text, at most 100 characters.
 	Framework *string `json:"framework,omitempty"`
 
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
 	Name string `json:"name"`
 
 	// Status An agent's lifecycle status.
-	Status  AgentStatus `json:"status"`
-	Version *string     `json:"version,omitempty"`
+	Status AgentStatus `json:"status"`
+
+	// Version Free text, at most 100 characters.
+	Version *string `json:"version,omitempty"`
 }
 
 // AgentDetail An agent with its assigned clients and statistics, as the single read returns it.
@@ -454,8 +614,16 @@ type AgentList struct {
 	Data []AgentListItem `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every agent matching the filters and search, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
 
 // AgentListItem An agent as the list returns it.
@@ -483,13 +651,16 @@ type AgentListItem struct {
 
 // AgentPatch A JSON Merge Patch (RFC 7396). `agent_key` is refused with the field code `immutable`, not `unknown_field`: it exists, and this operation cannot change it.
 type AgentPatch struct {
+	// Framework Free text, at most 100 characters. `null` clears it to `""`.
 	Framework Nullable[string] `json:"framework,omitzero"`
 
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
 	Name *string `json:"name,omitempty"`
 
 	// Status An agent's lifecycle status.
-	Status  *AgentStatus     `json:"status,omitempty"`
+	Status *AgentStatus `json:"status,omitempty"`
+
+	// Version Free text, at most 100 characters. `null` clears it to `""`.
 	Version Nullable[string] `json:"version,omitzero"`
 }
 
@@ -546,6 +717,21 @@ type Anomalies struct {
 	ZeroOutcomeDays []string `json:"zero_outcome_days"`
 }
 
+// AppliedImportMapping The mapping an import ran with, with every member present: a member the import did not send holds the value it applied. It has the members of `ImportMapping`, so it can be sent as the next import's `mapping`. A value the server's current rules refuse is refused then as in any mapping.
+type AppliedImportMapping struct {
+	// Columns Canonical field name to the file's column name, as in `ImportMapping`. `{}` when the import bound none.
+	Columns map[string]string `json:"columns"`
+
+	// Constants Canonical field name to the value used for every row, as in `ImportMapping`. `{}` when the import had none.
+	Constants map[string]string `json:"constants"`
+
+	// Delimiter A CSV field delimiter, a comma, a semicolon or a tab.
+	Delimiter ImportDelimiter `json:"delimiter"`
+
+	// Timezone The IANA zone applied to timestamps without an offset. `UTC` when the import named none.
+	Timezone string `json:"timezone"`
+}
+
 // AssignedAgent An agent assigned to a client.
 type AssignedAgent struct {
 	AgentKey string `json:"agent_key"`
@@ -556,22 +742,38 @@ type AssignedAgent struct {
 	Status AgentStatus `json:"status"`
 }
 
-// AttributedEvent One event behind a client's totals.
+// AttributedEvent An event as stored, with its agent's name and the client it counts toward.
 type AttributedEvent struct {
 	AgentID   string `json:"agent_id"`
 	AgentName string `json:"agent_name"`
 
 	// Category An event category.
-	Category  EventCategory `json:"category"`
-	ClientKey *string       `json:"client_key"`
-	Cost      *Decimal      `json:"cost"`
-	EventType string        `json:"event_type"`
+	Category EventCategory `json:"category"`
+
+	// ClientID The client the event counts toward: the client whose key it carried, or, when it carried none, the one client its agent is assigned to. `null` when it counts toward no client: its key names none, or it carried no key and its agent is assigned to no client or to several.
+	ClientID *string `json:"client_id"`
+
+	// ClientKey The key the event carried, as stored: as sent to `POST /v1/events`, trimmed by a CSV import. `null` when it carried none, or only whitespace.
+	ClientKey *string `json:"client_key"`
+
+	// ClientName The name of the client in `client_id`, or `null` with it.
+	ClientName *string `json:"client_name"`
+
+	// Cost In the response's `currency`.
+	Cost *Decimal `json:"cost"`
+
+	// CreatedAt When the API stored the event. An imported or late event arrives after its `timestamp`, sometimes long after.
+	CreatedAt time.Time `json:"created_at"`
+	EventType string    `json:"event_type"`
 
 	// ID The event id: a 64-bit integer as a decimal string, because JavaScript numbers lose precision above 2^53.
-	ID          string  `json:"id"`
-	Model       *string `json:"model"`
-	OutcomeType *string `json:"outcome_type"`
-	Quantity    float64 `json:"quantity"`
+	ID string `json:"id"`
+
+	// ImportBatchID The CSV import that wrote the event, or `null` when it was sent to `POST /v1/events`.
+	ImportBatchID *string `json:"import_batch_id"`
+	Model         *string `json:"model"`
+	OutcomeType   *string `json:"outcome_type"`
+	Quantity      float64 `json:"quantity"`
 
 	// Source How an event arrived: `api` for `POST /v1/events`, `csv` for a CSV import.
 	Source    EventSource `json:"source"`
@@ -604,7 +806,9 @@ type Calculation struct {
 	// State A calculation's position in its lifecycle: `draft` → `validated` → `published`; `validated` → `draft` on reopen. Publication is terminal.
 	State       CalculationState `json:"state"`
 	ValidatedAt *time.Time       `json:"validated_at"`
-	ValueTotal  *Decimal         `json:"value_total"`
+
+	// ValueTotal `null` when the client had no active value model.
+	ValueTotal *Decimal `json:"value_total"`
 }
 
 // CalculationCreate defines model for CalculationCreate.
@@ -619,7 +823,9 @@ type CalculationList struct {
 	Data []CalculationSummary `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
 }
 
@@ -646,17 +852,25 @@ type CalculationSnapshot struct {
 // CalculationState A calculation's position in its lifecycle: `draft` → `validated` → `published`; `validated` → `draft` on reopen. Publication is terminal.
 type CalculationState string
 
-// CalculationSummary A calculation as the list returns it: without `snapshot`, with `is_current`.
+// CalculationSummary A calculation as the lists return it: without `snapshot`, with `is_current`, the client's name and the number of coverage findings.
 type CalculationSummary struct {
 	// Checklist The validation checklist: the attestation recorded when the calculation was validated. All four checks are `false` until the calculation is validated.
-	Checklist  Checklist `json:"checklist"`
-	ClientID   string    `json:"client_id"`
-	CostTotal  Decimal   `json:"cost_total"`
-	CreatedAt  time.Time `json:"created_at"`
-	Currency   string    `json:"currency"`
-	ID         string    `json:"id"`
-	IsCurrent  *bool     `json:"is_current"`
-	MinorUnits int       `json:"minor_units"`
+	Checklist Checklist `json:"checklist"`
+	ClientID  string    `json:"client_id"`
+
+	// ClientName The client's name as its record holds it now.
+	ClientName string  `json:"client_name"`
+	CostTotal  Decimal `json:"cost_total"`
+
+	// CoverageFindings How many coverage findings the calculation's frozen figures hold: the disclosures a report on it would list, including those a report leaves out of the shared copy by default.
+	CoverageFindings int       `json:"coverage_findings"`
+	CreatedAt        time.Time `json:"created_at"`
+	Currency         string    `json:"currency"`
+	ID               string    `json:"id"`
+
+	// IsCurrent Whether this is the figure for its period: the latest publication covering it. `null` when the calculation is not published.
+	IsCurrent  *bool `json:"is_current"`
+	MinorUnits int   `json:"minor_units"`
 
 	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
 	Period      Period     `json:"period"`
@@ -668,7 +882,9 @@ type CalculationSummary struct {
 	// State A calculation's position in its lifecycle: `draft` → `validated` → `published`; `validated` → `draft` on reopen. Publication is terminal.
 	State       CalculationState `json:"state"`
 	ValidatedAt *time.Time       `json:"validated_at"`
-	ValueTotal  *Decimal         `json:"value_total"`
+
+	// ValueTotal `null` when the client had no active value model.
+	ValueTotal *Decimal `json:"value_total"`
 }
 
 // Checklist The validation checklist: the attestation recorded when the calculation was validated. All four checks are `false` until the calculation is validated.
@@ -733,12 +949,20 @@ type ClientCost struct {
 
 // ClientCreate defines model for ClientCreate.
 type ClientCreate struct {
+	// ClientKey At most 200 characters, counted as sent. Not trimmed: a key with white space (the Unicode `White_Space` property) at either end, or white space only, is refused with `invalid_format`. Unique in the workspace ignoring case: a key another client holds in any case, such as `acme` beside `Acme`, is refused with `client_key_in_use`. Absent or `null` leaves it unset; `""` is refused with `invalid_format`.
 	ClientKey *string `json:"client_key,omitempty"`
 
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
-	Name        string  `json:"name"`
-	Notes       *string `json:"notes,omitempty"`
+	Name string `json:"name"`
+
+	// Notes Free text, at most 2,000 characters. Absent or `null` stores `""`.
+	Notes *string `json:"notes,omitempty"`
+
+	// RenewalDate The renewal date. A date before the request's UTC date less one day is refused with `out_of_range`, so no time zone's today is refused. Absent or `null` leaves it unset; `""` is refused with `invalid_format`.
 	RenewalDate *string `json:"renewal_date,omitempty"`
+
+	// RenewalTerm How often the renewal recurs: an active client's renewal date then rolls forward by whole terms once it passes. Absent or `null` is no term, and the date stays as set. Any other value, `""` included, is refused with `invalid_value`.
+	RenewalTerm *RenewalTerm `json:"renewal_term,omitempty"`
 
 	// Status A client's lifecycle status.
 	Status ClientStatus `json:"status"`
@@ -747,24 +971,33 @@ type ClientCreate struct {
 // ClientDetail A client with its assigned agents, as the single read returns it.
 type ClientDetail struct {
 	// Agents The assigned agents, ordered by name, case-insensitively.
-	Agents             []AssignedAgent `json:"agents"`
-	ClientKey          *string         `json:"client_key"`
-	CreatedAt          time.Time       `json:"created_at"`
-	EarliestActivityAt *time.Time      `json:"earliest_activity_at"`
-	ID                 string          `json:"id"`
+	Agents []AssignedAgent `json:"agents"`
+
+	// ClientKey The external identifier partners use for this client in event data. `null` when unset.
+	ClientKey *string   `json:"client_key"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// EarliestActivityAt The first instant anything about this client could be true: its earliest attributed event, or the start of the earliest charge reaching it. `null` when it has neither.
+	EarliestActivityAt *time.Time `json:"earliest_activity_at"`
+	ID                 string     `json:"id"`
 
 	// Name Free text, at most 200 characters.
 	Name string `json:"name"`
 
 	// Notes Free text, `""` when empty.
-	Notes       string  `json:"notes"`
+	Notes string `json:"notes"`
+
+	// RenewalDate For an active client with a `renewal_term`, the next renewal on or after the current UTC date: the date as set, rolled forward by whole terms once it passes, keeping its day of the month, or the month's last day when the month is shorter. Otherwise the date as set, which may be past. `null` when unset.
 	RenewalDate *string `json:"renewal_date"`
+
+	// RenewalTerm How often the renewal recurs. `null` when the client has no term, and its renewal date stays as set. A client can hold a term without a renewal date; the term applies once a date is set.
+	RenewalTerm *RenewalTerm `json:"renewal_term"`
 
 	// Status A client's lifecycle status.
 	Status ClientStatus `json:"status"`
 }
 
-// ClientEventList The events behind a client's totals. The shared list envelope plus this list's own members. It is the one list that also takes `page` and returns `total`; `page` and the cursor are one offset with two spellings.
+// ClientEventList The events behind a client's totals. The shared list envelope plus this list's own members. It is the one list that returns `total` on every request, and the one whose `page` and cursor are one offset with two spellings.
 type ClientEventList struct {
 	ClientID string `json:"client_id"`
 
@@ -772,10 +1005,14 @@ type ClientEventList struct {
 	Currency string `json:"currency"`
 
 	// Data At most `limit`, in the requested order; ties break on the event id, descending.
-	Data       []AttributedEvent `json:"data"`
-	HasMore    bool              `json:"has_more"`
-	NextCursor *string           `json:"next_cursor"`
-	Page       *int              `json:"page"`
+	Data    []AttributedEvent `json:"data"`
+	HasMore bool              `json:"has_more"`
+
+	// NextCursor Opaque. Encodes the offset after this page.
+	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request used `cursor`.
+	Page *int `json:"page"`
 
 	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
 	Period Period `json:"period"`
@@ -790,18 +1027,34 @@ type ClientList struct {
 	Data []ClientRecord `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every client matching the filters and search, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
 
-// ClientPatch A JSON Merge Patch (RFC 7396): an absent member is unchanged, `null` clears a member. The merged client is validated whole.
+// ClientPatch A JSON Merge Patch (RFC 7396): an absent member is unchanged, `null` clears a member. The merged client is validated whole. A client's renewal schedule starts at the date as set: each renewal is that date plus whole terms. A patch that keeps the date but changes `renewal_term`, or changes `status`, saves the date the client shows on the current UTC day as the new start of its schedule, so the date shown does not jump; this happens without the patch sending a date. A client that is not active stops rolling and keeps the date it showed. A date the schedule already shows cannot become the new start in one patch: to move a client renewing on the 31st to the 30th, send a later 30th.
 type ClientPatch struct {
+	// ClientKey `null` clears it, refused with `client_key_has_events` while events carry the key. `""` does not clear it: it is refused with `invalid_format`. At most 200 characters, counted as sent. Not trimmed: a key with white space (the Unicode `White_Space` property) at either end, or white space only, is refused with `invalid_format`. Unique in the workspace ignoring case: a key another client holds in any case is refused with `client_key_in_use`.
 	ClientKey Nullable[string] `json:"client_key,omitzero"`
 
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
-	Name        *string          `json:"name,omitempty"`
-	Notes       Nullable[string] `json:"notes,omitzero"`
+	Name *string `json:"name,omitempty"`
+
+	// Notes Free text, at most 2,000 characters. `null` clears it to `""`.
+	Notes Nullable[string] `json:"notes,omitzero"`
+
+	// RenewalDate A date on the client's renewal schedule, up to the one it shows on the next UTC day, leaves the schedule unchanged, so sending back the `renewal_date` a read returned keeps it. Any other date is a new renewal date, refused with `out_of_range` when before the request's UTC date less one day. `null` clears it and keeps the term; `""` is refused with `invalid_format`.
 	RenewalDate Nullable[string] `json:"renewal_date,omitzero"`
+
+	// RenewalTerm How often the renewal recurs. `null` clears it, and the date then stays as set. Any other value, `""` included, is refused with `invalid_value`.
+	RenewalTerm Nullable[RenewalTerm] `json:"renewal_term,omitzero"`
 
 	// Status A client's lifecycle status.
 	Status *ClientStatus `json:"status,omitempty"`
@@ -811,6 +1064,7 @@ type ClientPatch struct {
 //
 // In the API reference, this schema is named Client.
 type ClientRecord struct {
+	// ClientKey The external identifier partners use for this client in event data. `null` when unset.
 	ClientKey *string   `json:"client_key"`
 	CreatedAt time.Time `json:"created_at"`
 	ID        string    `json:"id"`
@@ -819,8 +1073,13 @@ type ClientRecord struct {
 	Name string `json:"name"`
 
 	// Notes Free text, `""` when empty.
-	Notes       string  `json:"notes"`
+	Notes string `json:"notes"`
+
+	// RenewalDate For an active client with a `renewal_term`, the next renewal on or after the current UTC date: the date as set, rolled forward by whole terms once it passes, keeping its day of the month, or the month's last day when the month is shorter. Otherwise the date as set, which may be past. `null` when unset.
 	RenewalDate *string `json:"renewal_date"`
+
+	// RenewalTerm How often the renewal recurs. `null` when the client has no term, and its renewal date stays as set. A client can hold a term without a renewal date; the term applies once a date is set.
+	RenewalTerm *RenewalTerm `json:"renewal_term"`
 
 	// Status A client's lifecycle status.
 	Status ClientStatus `json:"status"`
@@ -842,7 +1101,9 @@ type ClientValue struct {
 	MinorUnits int         `json:"minor_units"`
 
 	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
-	Period     Period         `json:"period"`
+	Period Period `json:"period"`
+
+	// Total `null` together with `value_model` when the client has no active model: not priced, which differs from zero.
 	Total      *Decimal       `json:"total"`
 	ValueModel *ValueModelRef `json:"value_model"`
 }
@@ -885,8 +1146,10 @@ type CostCoverage struct {
 type CostLineItem struct {
 	CreatedAt time.Time `json:"created_at"`
 	Currency  string    `json:"currency"`
-	EndDate   *string   `json:"end_date"`
-	ID        string    `json:"id"`
+
+	// EndDate Inclusive. `null` while the charge is still running.
+	EndDate *string `json:"end_date"`
+	ID      string  `json:"id"`
 
 	// Label Free text.
 	Label         string  `json:"label"`
@@ -900,6 +1163,7 @@ type CostLineItem struct {
 
 // CostLineItemCreate defines model for CostLineItemCreate.
 type CostLineItemCreate struct {
+	// EndDate Inclusive; not before `start_date`. Absent or `null` makes the charge open-ended; `""` is refused with `invalid_format`.
 	EndDate *string `json:"end_date,omitempty"`
 
 	// Label Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed label is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded label the server accepts.
@@ -919,12 +1183,21 @@ type CostLineItemList struct {
 	Data []CostLineItem `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every line item matching the filters and search, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
 
 // CostLineItemPatch A JSON Merge Patch (RFC 7396). The merged line item is validated whole.
 type CostLineItemPatch struct {
+	// EndDate Inclusive; not before `start_date`. `null` makes the charge open-ended; `""` is refused with `invalid_format`.
 	EndDate Nullable[string] `json:"end_date,omitzero"`
 
 	// Label Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed label is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded label the server accepts.
@@ -1086,7 +1359,9 @@ type Disclosure struct {
 
 	// Kind A coverage finding on a report. Each kind appears at most once per report. `facts` per kind: `empty` `{}`; `unpriced` `{outcome_types: [{outcome_type, quantity}], outcome_types_omitted}`, at most 100 outcome types by quantity, largest first, with `outcome_types_omitted` counting the rest, which a report composed before the count existed lacks; `key_unset` `{}`; `unmatched` `{keys}`; `unattributable` `{events}`; `precedes` `{}`; `unpriceable` `{models}`; `uncosted` `{events}`; `token_valued` `{events}`; `unattributed` `{line_items}`; `partial` `{line_items}`; `truncated` `{prorated_through}`.
 	Kind DisclosureKind `json:"kind"`
-	Text *string        `json:"text"`
+
+	// Text The owner's own wording. `null` means use the default sentence, which `""` would not.
+	Text *string `json:"text"`
 }
 
 // DisclosureEdit defines model for DisclosureEdit.
@@ -1095,14 +1370,118 @@ type DisclosureEdit struct {
 
 	// Kind A coverage finding on a report. Each kind appears at most once per report. `facts` per kind: `empty` `{}`; `unpriced` `{outcome_types: [{outcome_type, quantity}], outcome_types_omitted}`, at most 100 outcome types by quantity, largest first, with `outcome_types_omitted` counting the rest, which a report composed before the count existed lacks; `key_unset` `{}`; `unmatched` `{keys}`; `unattributable` `{events}`; `precedes` `{}`; `unpriceable` `{models}`; `uncosted` `{events}`; `token_valued` `{events}`; `unattributed` `{line_items}`; `partial` `{line_items}`; `truncated` `{prorated_through}`.
 	Kind DisclosureKind `json:"kind"`
-	Text *string        `json:"text,omitempty"`
+
+	// Text At most 500 characters. `null` restores the default sentence.
+	Text *string `json:"text,omitempty"`
 }
 
 // DisclosureKind A coverage finding on a report. Each kind appears at most once per report. `facts` per kind: `empty` `{}`; `unpriced` `{outcome_types: [{outcome_type, quantity}], outcome_types_omitted}`, at most 100 outcome types by quantity, largest first, with `outcome_types_omitted` counting the rest, which a report composed before the count existed lacks; `key_unset` `{}`; `unmatched` `{keys}`; `unattributable` `{events}`; `precedes` `{}`; `unpriceable` `{models}`; `uncosted` `{events}`; `token_valued` `{events}`; `unattributed` `{line_items}`; `partial` `{line_items}`; `truncated` `{prorated_through}`.
 type DisclosureKind string
 
+// EventArrivalList The workspace's events in the order the API stored them, newest first, then by id descending.
+type EventArrivalList struct {
+	// AsOf The end of the arrival window, exclusive. Send it as the next poll's `since`.
+	AsOf time.Time `json:"as_of"`
+
+	// ClientID The `client_id` filter, or `null` when none was sent.
+	ClientID *string `json:"client_id"`
+
+	// Count The matching events in the window, from `since` to `as_of`, up to 10,000; `null` without `since`.
+	Count *int `json:"count"`
+
+	// CountCapped `true` when more than 10,000 events matched and `count` is 10,000; `null` without `since`.
+	CountCapped *bool `json:"count_capped"`
+
+	// Currency The currency of every `cost` in `data`, given once here.
+	Currency string `json:"currency"`
+
+	// Data At most `limit`, newest arrival first; ties break on the event id, descending.
+	Data []AttributedEvent `json:"data"`
+
+	// HasMore Whether another page exists.
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. It carries `as_of`. Clients must not parse it.
+	NextCursor *string `json:"next_cursor"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period Period `json:"period"`
+
+	// Since The start of the arrival window, inclusive, or `null` when none was sent.
+	Since *time.Time `json:"since"`
+}
+
+// EventCategoryCount The events of one category.
+type EventCategoryCount struct {
+	// Category An event category.
+	Category EventCategory `json:"category"`
+	Count    int           `json:"count"`
+}
+
+// EventDayCount The events whose `timestamp` falls in one day of the period.
+type EventDayCount struct {
+	Count int `json:"count"`
+
+	// Start Where the day starts. It ends 24 hours later, or at the period's end.
+	Start time.Time `json:"start"`
+}
+
+// EventList The workspace's events: newest first by `timestamp`, then by id, unless `sort` asks for another order.
+type EventList struct {
+	// AsOf The arrival limit this page was read under: the `as_of` sent, the cursor's, or the one issued. Send it on later requests to read the same events.
+	AsOf time.Time `json:"as_of"`
+
+	// ClientID The `client_id` filter, or `null` when none was sent.
+	ClientID *string `json:"client_id"`
+
+	// Currency The currency of every `cost` in `data`, given once here.
+	Currency string `json:"currency"`
+
+	// Data At most `limit`, in the requested order; ties break on the event id, descending.
+	Data []AttributedEvent `json:"data"`
+
+	// HasMore Whether another page exists.
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. It carries `as_of`. Clients must not parse it.
+	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period Period `json:"period"`
+
+	// Total Every event matching the filters, up to 10,000, or `null` when the request did not send `page`. With `import_batch_id` it is exact, and may pass 10,000.
+	Total *int `json:"total"`
+
+	// TotalCapped `true` when more than 10,000 events matched and `total` is 10,000; `false` when `total` is exact; `null` when the request did not send `page`.
+	TotalCapped *bool `json:"total_capped"`
+}
+
 // EventSource How an event arrived: `api` for `POST /v1/events`, `csv` for a CSV import.
 type EventSource string
+
+// EventSummary How many events a view of the workspace's events holds: in all, per day and per category.
+type EventSummary struct {
+	// AsOf The arrival limit the counts were read under, as on the list.
+	AsOf time.Time `json:"as_of"`
+
+	// Categories One entry per category, in the order `session`, `task`, `model`, `outcome`, `exception`, zeros included. With `category` sent, the others are `0`.
+	Categories []EventCategoryCount `json:"categories"`
+
+	// ClientID The `client_id` filter, or `null` when none was sent.
+	ClientID *string `json:"client_id"`
+
+	// Days One entry per 24 hours from `from`, ascending, zeros included. The last is shorter when the period is not a whole number of days. Empty when `from` equals `to`.
+	Days []EventDayCount `json:"days"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period Period `json:"period"`
+
+	// Total Every event the view holds, counted exactly. Under the same parameters it equals the list's `total` whenever the list's `total_capped` is `false`.
+	Total int `json:"total"`
+}
 
 // Health Liveness.
 type Health struct {
@@ -1120,6 +1499,50 @@ type HealthDirection string
 
 // HealthUnavailable Why a renewal row has no health signal. `never_published`: no published calculation. `no_prior_period`: nothing published abuts the latest period. `ratio_undefined`: a ratio on either side is undefined.
 type HealthUnavailable string
+
+// Import One CSV import, its counts and the mapping it ran with.
+type Import struct {
+	// Accepted The events this import wrote, counted when the import is read: the `import_batch_id` of each is the import's `id`.
+	Accepted  int       `json:"accepted"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Duplicates `total_rows` less `rejected` and `accepted`. At the commit, these are the valid rows that wrote no event: an event with the same `event_id`, or the same content hash, was already stored, or an earlier row of the same file had the same `event_id`. Identical rows of one file without an `event_id` are each written, so they are not counted here.
+	Duplicates int `json:"duplicates"`
+
+	// Filename The file part's file name, without a directory part separated by `/`: a part named `exports/august.csv` is stored as `august.csv`. A backslash is not a separator, so `C:\ops\august.csv` is stored whole. `""` when the file part named none.
+	Filename string `json:"filename"`
+	ID       string `json:"id"`
+
+	// Mapping The mapping an import ran with, with every member present: a member the import did not send holds the value it applied. It has the members of `ImportMapping`, so it can be sent as the next import's `mapping`. A value the server's current rules refuse is refused then as in any mapping.
+	Mapping AppliedImportMapping `json:"mapping"`
+
+	// Rejected Rows refused, counted once each however many problems they had.
+	Rejected int `json:"rejected"`
+
+	// TotalRows The file's data rows, not counting the header.
+	TotalRows int `json:"total_rows"`
+}
+
+// ImportDelimiter A CSV field delimiter, a comma, a semicolon or a tab.
+type ImportDelimiter = string
+
+// ImportList The workspace's imports: newest first, then id.
+type ImportList struct {
+	// Data One page of items, at most `limit`, in the documented order.
+	Data []ImportSummary `json:"data"`
+
+	// HasMore Whether another page exists.
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
+	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every import in the workspace, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
+}
 
 // ImportMapping How a CSV file maps onto canonical events. Each row's mapped values are held to the rules of `EventInput`. A `cost` with more than 6 decimal places is refused with `too_precise`, as on ingest. A `quantity` or `cost` cell must be a decimal number, `^[+-]?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$` after trimming, and a `tokens_in` or `tokens_out` cell an integer, `^[+-]?[0-9]+$`; anything else, hexadecimal, underscores, `Inf` and `NaN` included, is refused with `invalid_format`. An empty cell is not provided. An empty `currency` cell declares no currency. An `event_id`, `agent_key`, `client_key`, `event_type`, `outcome_type` or `model` value holds at most 200 characters, as on ingest. A cell is counted after trimming, and a constant as given. A longer value refuses its row with `too_long` at its column, or with a `null` column for a constant. A cell bound to `event_id`, `agent_key`, `client_key`, `category`, `event_type`, `outcome_type` or `model` that is not valid UTF-8 refuses its row with `invalid_format` at its column, as one holding U+0000 does.
 type ImportMapping struct {
@@ -1156,7 +1579,9 @@ type ImportPreview struct {
 	Preview []PreviewRow `json:"preview"`
 
 	// Rejected Rows the file would reject, counted once each however many problems they have.
-	Rejected        int     `json:"rejected"`
+	Rejected int `json:"rejected"`
+
+	// TimezoneWarning Set when the file has timestamps without an offset and the last import used a different timezone, so re-imported rows would not deduplicate. Human text.
 	TimezoneWarning *string `json:"timezone_warning"`
 	TotalRows       int     `json:"total_rows"`
 	Valid           int     `json:"valid"`
@@ -1181,12 +1606,34 @@ type ImportResult struct {
 // ImportRowError One problem with a rejected CSV row. A row with several problems has one entry for each, all carrying its `row`.
 type ImportRowError struct {
 	// Code The field-level code of one `errors` entry, or of an ingest or CSV row error. The vocabulary is open: new codes are additive.
-	Code   FieldErrorCode `json:"code"`
-	Column *string        `json:"column"`
-	Detail string         `json:"detail"`
+	Code FieldErrorCode `json:"code"`
+
+	// Column The file's column the problem is in. `null` when the value came from a constant or the problem has no column.
+	Column *string `json:"column"`
+	Detail string  `json:"detail"`
 
 	// Row The one-based line number in the file, counting the header.
 	Row int `json:"row"`
+}
+
+// ImportSummary One CSV import and its counts. `total_rows` is `accepted` plus `duplicates` plus `rejected`.
+type ImportSummary struct {
+	// Accepted The events this import wrote, counted when the import is read: the `import_batch_id` of each is the import's `id`.
+	Accepted  int       `json:"accepted"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Duplicates `total_rows` less `rejected` and `accepted`. At the commit, these are the valid rows that wrote no event: an event with the same `event_id`, or the same content hash, was already stored, or an earlier row of the same file had the same `event_id`. Identical rows of one file without an `event_id` are each written, so they are not counted here.
+	Duplicates int `json:"duplicates"`
+
+	// Filename The file part's file name, without a directory part separated by `/`: a part named `exports/august.csv` is stored as `august.csv`. A backslash is not a separator, so `C:\ops\august.csv` is stored whole. `""` when the file part named none.
+	Filename string `json:"filename"`
+	ID       string `json:"id"`
+
+	// Rejected Rows refused, counted once each however many problems they had.
+	Rejected int `json:"rejected"`
+
+	// TotalRows The file's data rows, not counting the header.
+	TotalRows int `json:"total_rows"`
 }
 
 // ManualCostLine A cost line item prorated over the period.
@@ -1228,13 +1675,48 @@ type ModelRateInput struct {
 	OutputPer1K Decimal `json:"output_per_1k"`
 }
 
+// Onboarding The guided setup's progress.
+type Onboarding struct {
+	// CurrentStep The first step neither completed nor skipped: where the owner resumes. `null` once every step is completed or skipped.
+	CurrentStep *OnboardingStep `json:"current_step"`
+
+	// HasPublished Whether any calculation in the workspace is published.
+	HasPublished bool `json:"has_published"`
+
+	// Steps Every step, in the fixed order of `OnboardingStep`.
+	Steps []OnboardingStepProgress `json:"steps"`
+}
+
+// OnboardingSkippedStepsSet defines model for OnboardingSkippedStepsSet.
+type OnboardingSkippedStepsSet struct {
+	// Steps The steps to mark skipped, at most five. A repeated step is refused with `duplicate`, an unknown one with `invalid_value`. `[]` clears every skip.
+	Steps []OnboardingStep `json:"steps"`
+}
+
+// OnboardingStep A guided-setup step, in its fixed order: `add_client`, `add_agent`, `price_outcomes`, `bring_in_data`, `create_draft_calculation`.
+type OnboardingStep string
+
+// OnboardingStepProgress defines model for OnboardingStepProgress.
+type OnboardingStepProgress struct {
+	// Completed Whether the workspace's data completes the step: a client; an agent assigned to a client; a line item on an active value model; an event; a calculation in any state.
+	Completed bool `json:"completed"`
+
+	// SkippedAt When the step was skipped, or `null` when it is not skipped.
+	SkippedAt *time.Time `json:"skipped_at"`
+
+	// Step A guided-setup step, in its fixed order: `add_client`, `add_agent`, `price_outcomes`, `bring_in_data`, `create_draft_calculation`.
+	Step OnboardingStep `json:"step"`
+}
+
 // OutcomeTypeList Outcome types by summed quantity, largest first, then by name.
 type OutcomeTypeList struct {
 	// Data One page of items, at most `limit`, in the documented order.
 	Data []OutcomeTypeUsage `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
 }
 
@@ -1244,7 +1726,9 @@ type OutcomeTypeUsage struct {
 
 	// OutcomeType As events carry it.
 	OutcomeType string `json:"outcome_type"`
-	Priced      *bool  `json:"priced"`
+
+	// Priced Whether the client's active value model prices this outcome type. `null` where no single client's model applies: the workspace-wide list and value coverage findings.
+	Priced *bool `json:"priced"`
 
 	// Quantity The summed event quantity.
 	Quantity float64 `json:"quantity"`
@@ -1329,6 +1813,8 @@ type PriceTableSet struct {
 // PublicReport A shared report as its recipient reads it.
 type PublicReport struct {
 	ClientName string `json:"client_name"`
+
+	// ComparedTo The client's abutting prior published period.
 	ComparedTo *struct {
 		CostTotal Decimal `json:"cost_total"`
 
@@ -1380,15 +1866,20 @@ type PublicReport struct {
 
 // Ratios The two return ratios. Both are `null` together, exactly when `undefined_reason` is set.
 type Ratios struct {
+	// Roi `(value − cost) / cost`, from the rounded totals.
 	Roi             *float64         `json:"roi"`
 	UndefinedReason *UndefinedReason `json:"undefined_reason"`
-	ValueToCost     *float64         `json:"value_to_cost"`
+
+	// ValueToCost `value / cost`, from the rounded totals.
+	ValueToCost *float64 `json:"value_to_cost"`
 }
 
 // Renewal A client's renewal readiness, from its latest published figures. `health` and `unavailable` are never both set.
 type Renewal struct {
-	ClientID string `json:"client_id"`
-	Health   *struct {
+	// CalculationID The published calculation `roi` and `period` come from. `null` exactly when `period` is.
+	CalculationID *string `json:"calculation_id"`
+	ClientID      string  `json:"client_id"`
+	Health        *struct {
 		CurrentRoi float64 `json:"current_roi"`
 
 		// DeltaPoints The change in percentage points, one decimal place.
@@ -1398,29 +1889,59 @@ type Renewal struct {
 		Direction HealthDirection `json:"direction"`
 		PriorRoi  float64         `json:"prior_roi"`
 	} `json:"health"`
-	Name        string             `json:"name"`
-	Period      *Period            `json:"period"`
-	PriorPeriod *string            `json:"prior_period"`
-	RenewalDate string             `json:"renewal_date"`
+	Name string `json:"name"`
+
+	// Period The client's latest published period. `null` when it has none.
+	Period      *Period `json:"period"`
+	PriorPeriod *string `json:"prior_period"`
+
+	// RenewalDate For a client with a `renewal_term`, the next renewal on or after the list's `today`. Otherwise the date as set, which may be before `today`.
+	RenewalDate string `json:"renewal_date"`
+
+	// RenewalTerm How often the renewal recurs. `null` when the client has no term.
+	RenewalTerm *RenewalTerm       `json:"renewal_term"`
 	Roi         *float64           `json:"roi"`
 	Unavailable *HealthUnavailable `json:"unavailable"`
 }
 
-// RenewalList Clients with a renewal date, by renewal date, then name, then id.
+// RenewalList Active clients with a renewal date, by the renewal date shown, then by name case-insensitively, then by id.
 type RenewalList struct {
 	// Data One page of items, at most `limit`, in the documented order.
 	Data []Renewal `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Today The date the renewal dates were rolled against and `window` measured from: the `today` sent, or the current UTC date.
+	Today string `json:"today"`
+
+	// Total Every client matching `window` and `renewal_term`, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
+
+// RenewalTerm How often a client's renewal recurs: every month, or every year. Each renewal is the date as set plus whole terms, on the same day of the month, or on the month's last day when the month is shorter: a monthly renewal set on 31 January falls on 28 February, then 31 March.
+type RenewalTerm string
+
+// RenewalTermFilter A renewal term to list, or `none` for a client with no term.
+type RenewalTermFilter string
+
+// RenewalWindow Which renewal dates to list, measured from `today`: `overdue`, before `today`; `next_30_days` and `next_90_days`, from `today` to 30 or 90 days after it, both ends included; `upcoming`, on or after `today`.
+type RenewalWindow string
 
 // Report A report: the editorial layer over a published calculation.
 type Report struct {
 	CalculationID string `json:"calculation_id"`
 
-	// ClientName Free text, as the recipient sees it.
+	// ClientID The client of the report's calculation.
+	ClientID string `json:"client_id"`
+
+	// ClientName The client's name as its record holds it now, so renaming the client renames it on every report. The recipient sees `letterhead_client_name` instead.
 	ClientName string    `json:"client_name"`
 	CreatedAt  time.Time `json:"created_at"`
 
@@ -1430,14 +1951,25 @@ type Report struct {
 	ID            string       `json:"id"`
 	LastViewedAt  *time.Time   `json:"last_viewed_at"`
 
+	// LetterheadClientName Free text, as the recipient sees it: the letterhead's "For" line. It starts as the client's name and may differ from it.
+	LetterheadClientName string `json:"letterhead_client_name"`
+
+	// LetterheadWorkspaceName Free text, as the recipient sees it: the letterhead's "From" line. It starts as the workspace's name and may differ from it.
+	LetterheadWorkspaceName string `json:"letterhead_workspace_name"`
+
 	// Note Free text, `""` when empty.
-	Note       string     `json:"note"`
-	RevokedAt  *time.Time `json:"revoked_at"`
+	Note string `json:"note"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period    Period     `json:"period"`
+	RevokedAt *time.Time `json:"revoked_at"`
+
+	// ShareToken The link token, once shared. `null` before the report is shared.
 	ShareToken *string    `json:"share_token"`
 	SharedAt   *time.Time `json:"shared_at"`
 
-	// WorkspaceName Free text, as the recipient sees it.
-	WorkspaceName string `json:"workspace_name"`
+	// State A report's position in its lifecycle: `draft` until it is shared, `shared` while its link works, and `revoked` once the link is revoked. A state only moves forward.
+	State ReportState `json:"state"`
 }
 
 // ReportList A calculation's reports, newest first, then id.
@@ -1446,49 +1978,73 @@ type ReportList struct {
 	Data []ReportSummary `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
 }
 
 // ReportPatch A JSON Merge Patch (RFC 7396). An array replaces the stored array whole. A shared report is refused with `report_shared`.
 type ReportPatch struct {
-	// ClientName Free text, 1 to 200 characters counted in Unicode code points, padding included. Not trimmed: the value is stored as sent. Blank after trimming white space is `required`, and longer than 200 characters is `too_long`.
-	ClientName *string `json:"client_name,omitempty"`
-
 	// Disclosures Replaces the editorial state of every finding. It must name each stored finding exactly once: a missing one is `required`, an unknown one `invalid_value`, a repeated one `duplicate`. At most 50: a longer array is refused at its 51st element with one `too_many` at `/disclosures`.
 	Disclosures *[]DisclosureEdit `json:"disclosures,omitempty"`
-	Note        Nullable[string]  `json:"note,omitzero"`
 
-	// WorkspaceName Free text, 1 to 200 characters counted in Unicode code points, padding included. Not trimmed: the value is stored as sent. Blank after trimming white space is `required`, and longer than 200 characters is `too_long`.
-	WorkspaceName *string `json:"workspace_name,omitempty"`
+	// LetterheadClientName Free text, 1 to 200 characters counted in Unicode code points, padding included. Not trimmed: the value is stored as sent. Blank after trimming white space is `required`, and longer than 200 characters is `too_long`.
+	LetterheadClientName *string `json:"letterhead_client_name,omitempty"`
+
+	// LetterheadWorkspaceName Free text, 1 to 200 characters counted in Unicode code points, padding included. Not trimmed: the value is stored as sent. Blank after trimming white space is `required`, and longer than 200 characters is `too_long`.
+	LetterheadWorkspaceName *string `json:"letterhead_workspace_name,omitempty"`
+
+	// Note Free text, at most 2,000 characters. `null` clears it to `""`.
+	Note Nullable[string] `json:"note,omitzero"`
 }
+
+// ReportState A report's position in its lifecycle: `draft` until it is shared, `shared` while its link works, and `revoked` once the link is revoked. A state only moves forward.
+type ReportState string
 
 // ReportSummary A report as the list returns it: without `disclosures`. Read the report for its findings.
 type ReportSummary struct {
 	CalculationID string `json:"calculation_id"`
 
-	// ClientName Free text, as the recipient sees it.
+	// ClientID The client of the report's calculation.
+	ClientID string `json:"client_id"`
+
+	// ClientName The client's name as its record holds it now, so renaming the client renames it on every report. The recipient sees `letterhead_client_name` instead.
 	ClientName    string     `json:"client_name"`
 	CreatedAt     time.Time  `json:"created_at"`
 	FirstViewedAt *time.Time `json:"first_viewed_at"`
 	ID            string     `json:"id"`
 	LastViewedAt  *time.Time `json:"last_viewed_at"`
 
+	// LetterheadClientName Free text, as the recipient sees it: the letterhead's "For" line. It starts as the client's name and may differ from it.
+	LetterheadClientName string `json:"letterhead_client_name"`
+
+	// LetterheadWorkspaceName Free text, as the recipient sees it: the letterhead's "From" line. It starts as the workspace's name and may differ from it.
+	LetterheadWorkspaceName string `json:"letterhead_workspace_name"`
+
 	// Note Free text, `""` when empty.
-	Note       string     `json:"note"`
-	RevokedAt  *time.Time `json:"revoked_at"`
+	Note string `json:"note"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period    Period     `json:"period"`
+	RevokedAt *time.Time `json:"revoked_at"`
+
+	// ShareToken The link token, once shared. `null` before the report is shared.
 	ShareToken *string    `json:"share_token"`
 	SharedAt   *time.Time `json:"shared_at"`
 
-	// WorkspaceName Free text, as the recipient sees it.
-	WorkspaceName string `json:"workspace_name"`
+	// State A report's position in its lifecycle: `draft` until it is shared, `shared` while its link works, and `revoked` once the link is revoked. A state only moves forward.
+	State ReportState `json:"state"`
 }
 
 // ReportWithPreview A report with its recipient preview, as the single read returns it.
 type ReportWithPreview struct {
 	CalculationID string `json:"calculation_id"`
 
-	// ClientName Free text, as the recipient sees it.
+	// ClientID The client of the report's calculation.
+	ClientID string `json:"client_id"`
+
+	// ClientName The client's name as its record holds it now, so renaming the client renames it on every report. The recipient sees `letterhead_client_name` instead.
 	ClientName string    `json:"client_name"`
 	CreatedAt  time.Time `json:"created_at"`
 
@@ -1498,15 +2054,28 @@ type ReportWithPreview struct {
 	ID            string       `json:"id"`
 	LastViewedAt  *time.Time   `json:"last_viewed_at"`
 
-	// Note Free text, `""` when empty.
-	Note       string        `json:"note"`
-	Preview    *PublicReport `json:"preview"`
-	RevokedAt  *time.Time    `json:"revoked_at"`
-	ShareToken *string       `json:"share_token"`
-	SharedAt   *time.Time    `json:"shared_at"`
+	// LetterheadClientName Free text, as the recipient sees it: the letterhead's "For" line. It starts as the client's name and may differ from it.
+	LetterheadClientName string `json:"letterhead_client_name"`
 
-	// WorkspaceName Free text, as the recipient sees it.
-	WorkspaceName string `json:"workspace_name"`
+	// LetterheadWorkspaceName Free text, as the recipient sees it: the letterhead's "From" line. It starts as the workspace's name and may differ from it.
+	LetterheadWorkspaceName string `json:"letterhead_workspace_name"`
+
+	// Note Free text, `""` when empty.
+	Note string `json:"note"`
+
+	// Period A half-open range of instants, `[from, to)`. An unbounded side is `null`.
+	Period Period `json:"period"`
+
+	// Preview Exactly what `GET /report` would return. `null` when the preview cannot be rendered.
+	Preview   *PublicReport `json:"preview"`
+	RevokedAt *time.Time    `json:"revoked_at"`
+
+	// ShareToken The link token, once shared. `null` before the report is shared.
+	ShareToken *string    `json:"share_token"`
+	SharedAt   *time.Time `json:"shared_at"`
+
+	// State A report's position in its lifecycle: `draft` until it is shared, `shared` while its link works, and `revoked` once the link is revoked. A state only moves forward.
+	State ReportState `json:"state"`
 }
 
 // RoiResult A client's ROI over a period: value and cost, composed and divided.
@@ -1621,7 +2190,9 @@ type ValueLineItemInput struct {
 	Label string `json:"label"`
 
 	// OutcomeType 1 to 200 characters, counted as sent. Not trimmed: a value with white space (the Unicode `White_Space` property) at either end, or white space only, is refused with `invalid_format`. Unique within the set, case-insensitively.
-	OutcomeType    string  `json:"outcome_type"`
+	OutcomeType string `json:"outcome_type"`
+
+	// ProvenanceNote Free text, at most 1,000 characters.
 	ProvenanceNote *string `json:"provenance_note,omitempty"`
 
 	// UnitValue At least 0 and below 100,000,000, with at most 4 decimal places; more is refused with `too_precise`, never rounded. Absent means 0, because templates ship every unit value as 0 on purpose.
@@ -1639,10 +2210,12 @@ type ValueLineItemsSet struct {
 
 // ValueModel A value model: how one client's outcomes are priced.
 type ValueModel struct {
-	ClientID  string    `json:"client_id"`
-	CreatedAt time.Time `json:"created_at"`
-	Currency  string    `json:"currency"`
-	ID        string    `json:"id"`
+	// ArchivedAt When the model was archived; `null` unless `status` is `archived`.
+	ArchivedAt *time.Time `json:"archived_at"`
+	ClientID   string     `json:"client_id"`
+	CreatedAt  time.Time  `json:"created_at"`
+	Currency   string     `json:"currency"`
+	ID         string     `json:"id"`
 
 	// LineItems At most 50, ordered by `position`.
 	LineItems []ValueLineItem `json:"line_items"`
@@ -1660,10 +2233,13 @@ type ValueModel struct {
 
 // ValueModelCreate Creates the client's active model. `template_id` and `copy_from_model_id` are create-only and are not echoed. Setting both is refused with `mutually_exclusive` at `/copy_from_model_id`. With neither, the model starts with no line items.
 type ValueModelCreate struct {
+	// CopyFromModelID Create-only: start from a copy of this model's line items. An id naming no model in the workspace is refused with `unknown_reference`. Absent or `null` means no source; `""` is refused with `invalid_format`.
 	CopyFromModelID *string `json:"copy_from_model_id,omitempty"`
 
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
-	Name       string  `json:"name"`
+	Name string `json:"name"`
+
+	// TemplateID Create-only: start from this built-in template's line items. An unknown id is refused with `unknown_reference`. Absent or `null` means no template; `""` is refused with `invalid_format`.
 	TemplateID *string `json:"template_id,omitempty"`
 }
 
@@ -1673,11 +2249,19 @@ type ValueModelList struct {
 	Data []ValueModelSummary `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every value model matching the filters and search, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
 
-// ValueModelPatch A JSON Merge Patch (RFC 7396) of the client's active model. Setting `status` to `archived` frees the client for a new active model.
+// ValueModelPatch A JSON Merge Patch (RFC 7396) of the client's active model. Setting `status` to `archived` sets `archived_at` and frees the client for a new active model.
 type ValueModelPatch struct {
 	// Name Free text, trimmed of white space (the Unicode `White_Space` property) at both ends. The trimmed name is stored. It holds 1 to 200 characters, counted in Unicode code points after trimming: blank after trimming is `required`, and longer than 200 characters after trimming is `too_long`. U+0000 is `invalid_format`, as in every request string. No JSON Schema keyword measures a length after trimming, so the schema states no `maxLength`; a `maxLength` of 200 would refuse a padded name the server accepts.
 	Name *string `json:"name,omitempty"`
@@ -1719,7 +2303,9 @@ type ValueResult struct {
 	Coverage ValueCoverage `json:"coverage"`
 
 	// Lines One line for each line item of the model, in line-item order, so at most 50. An outcome type no line item prices is never a line; it is listed in `coverage.unpriced_outcome_types`.
-	Lines      []ValueLine    `json:"lines"`
+	Lines []ValueLine `json:"lines"`
+
+	// Total `null` together with `value_model` when the client has no active model: not priced, which differs from zero.
 	Total      *Decimal       `json:"total"`
 	ValueModel *ValueModelRef `json:"value_model"`
 }
@@ -1754,17 +2340,75 @@ type ValueTemplateList struct {
 	Data []ValueTemplate `json:"data"`
 
 	// HasMore Whether another page exists.
-	HasMore    bool    `json:"has_more"`
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
 	NextCursor *string `json:"next_cursor"`
+}
+
+// Workspace The workspace a credential belongs to.
+type Workspace struct {
+	CreatedAt  time.Time `json:"created_at"`
+	Currency   string    `json:"currency"`
+	ID         string    `json:"id"`
+	MinorUnits int       `json:"minor_units"`
+
+	// Name Free text.
+	Name string `json:"name"`
+}
+
+// WorkspaceCalculationList The workspace's calculations: latest period first, then newest first, then id.
+type WorkspaceCalculationList struct {
+	// Data One page of items, at most `limit`, in the documented order.
+	Data []CalculationSummary `json:"data"`
+
+	// HasMore Whether another page exists.
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
+	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every calculation matching the filters, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
+}
+
+// WorkspaceReportList The workspace's reports: newest first, then id.
+type WorkspaceReportList struct {
+	// Data One page of items, at most `limit`, in the documented order.
+	Data []ReportSummary `json:"data"`
+
+	// HasMore Whether another page exists.
+	HasMore bool `json:"has_more"`
+
+	// NextCursor The opaque cursor for the next page. Clients must not parse it.
+	NextCursor *string `json:"next_cursor"`
+
+	// Page The page requested, or `null` when the request did not send `page`.
+	Page *int `json:"page"`
+
+	// Total Every report matching the filters, not only this page, or `null` when the request did not send `page`.
+	Total *int `json:"total"`
 }
 
 // ListAgentsParams defines parameters for ListAgents.
 type ListAgentsParams struct {
+	// Q Only rows whose name holds this text, matched case-insensitively and anywhere in the name. Every character matches itself: `%`, `_` and `\` are not wildcards. 1 to 200 characters; a longer value is refused with `too_long`. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`. Combines with the filters by AND, and binds the cursor as a filter does.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Status Only agents with this status. Any other value is refused with `invalid_value`.
+	Status *AgentStatus `form:"status,omitempty" json:"status,omitempty"`
+
 	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // GetAgentParams defines parameters for GetAgent.
@@ -1774,6 +2418,27 @@ type GetAgentParams struct {
 
 	// To End of a half-open range, exclusive. Absent means unbounded. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. When both bounds are sent, `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
 	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// ListCalculationsParams defines parameters for ListCalculations.
+type ListCalculationsParams struct {
+	// ClientID Only this client's calculations. An id that names no client in the workspace matches no calculation, so the list is empty. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// State Only calculations in this state. Any other value is refused with `invalid_value`.
+	State *CalculationState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Month Only calculations whose period is exactly this calendar month in UTC, from its first instant to the first instant of the next. A period with any other bounds, such as a quarter, a week inside the month, or the month bounded at another offset, does not match. A value not in `YYYY-MM` form is refused with `invalid_format`, and a month before `1900-01` or after `9999-12` with `out_of_range`.
+	Month *string `form:"month,omitempty" json:"month,omitempty"`
+
+	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // ListCalculationReportsParams defines parameters for ListCalculationReports.
@@ -1787,11 +2452,20 @@ type ListCalculationReportsParams struct {
 
 // ListClientsParams defines parameters for ListClients.
 type ListClientsParams struct {
+	// Q Only rows whose name holds this text, matched case-insensitively and anywhere in the name. Every character matches itself: `%`, `_` and `\` are not wildcards. 1 to 200 characters; a longer value is refused with `too_long`. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`. Combines with the filters by AND, and binds the cursor as a filter does.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Status Only clients with this status. Any other value is refused with `invalid_value`.
+	Status *ClientStatus `form:"status,omitempty" json:"status,omitempty"`
+
 	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // GetClientAnomaliesParams defines parameters for GetClientAnomalies.
@@ -1895,11 +2569,23 @@ type GetClientValueParams struct {
 
 // ListCostLineItemsParams defines parameters for ListCostLineItems.
 type ListCostLineItemsParams struct {
+	// Q Only line items whose label holds this text, matched case-insensitively and anywhere in the label. Every character matches itself: `%`, `_` and `\` are not wildcards. 1 to 200 characters; a longer value is refused with `too_long`. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`. Combines with the filters by AND, and binds the cursor as a filter does.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// TargetKind Only line items charged to a client, or only those charged to an agent. Any other value is refused with `invalid_value`.
+	TargetKind *CostTargetKind `form:"target_kind,omitempty" json:"target_kind,omitempty"`
+
+	// TargetID Only line items charged to this client or agent, the line item's `target.id`. An id that names nothing in the workspace matches no line item, so the list is empty. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	TargetID *string `form:"target_id,omitempty" json:"target_id,omitempty"`
+
 	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // GetDashboardParams defines parameters for GetDashboard.
@@ -1922,11 +2608,152 @@ type GetDashboardParamsDir string
 
 // ListRenewalsParams defines parameters for ListRenewals.
 type ListRenewalsParams struct {
+	// Today The caller's current date, which every renewal date is rolled against and `window` is measured from. From the current UTC date less one day to the current UTC date plus one, so that any time zone's date is accepted; any other date is refused with `out_of_range`. Absent means the current UTC date. The response's `today` says which date applied, and a cursor is valid only under that date, so send it on later pages. A later page that leaves `today` out and is read after midnight UTC is refused with `invalid_value` on `cursor`.
+	Today *string `form:"today,omitempty" json:"today,omitempty"`
+
+	// Window Only clients whose renewal date falls in this window. Absent lists every date. Any other value is refused with `invalid_value`.
+	Window *RenewalWindow `form:"window,omitempty" json:"window,omitempty"`
+
+	// RenewalTerm Only clients with one of these terms, `none` naming a client with no term. Repeat the parameter for several terms, as in `renewal_term=annual&renewal_term=none`; their order does not matter. Absent lists every term. A value sent twice is refused with `duplicate`, and any other value with `invalid_value`.
+	RenewalTerm *[]RenewalTermFilter `form:"renewal_term,omitempty" json:"renewal_term,omitempty"`
+
 	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	// From Start of the period of event time, inclusive. Required, and refused with `required` when missing, unless `import_batch_id` is sent; then `from` and `to` are both sent or neither, and one without the other is refused with `required` on the missing one. Must not be after `to`, or it is refused with `out_of_range` on `from`. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To End of the period of event time, exclusive. Required, and refused with `required` when missing, unless `import_batch_id` is sent; then `from` and `to` are both sent or neither. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// AsOf The arrival limit: only events the API stored before this instant. Leave it out on a view's first request, and the response issues one; send that value on later requests to read the same events. A value later than the server can yet hold still is refused with `out_of_range`, and so is one before `1900-01-01T00:00:00Z`. With `cursor`, it must name the cursor's limit, or the cursor is refused with `invalid_value`; without it, the cursor's limit applies. A cursor whose limit is later than the server can yet hold still is refused with `invalid_value` too. That happens only after a rare delay inside the database; reload the view without the cursor. With `import_batch_id`, it is issued and returned but not applied, because an import's events appear together when it commits. Otherwise an event falls below the limit a second or two after the API stores it, and later while a long request, such as a large import, is still in progress. A read straight after an ingest may not include it yet.
+	AsOf *time.Time `form:"as_of,omitempty" json:"as_of,omitempty"`
+
+	// ClientID Only events that count toward this client: those carrying its client key, compared ignoring case and surrounding spaces, and those carrying no key from an agent assigned to this client alone. They are the events `GET /v1/clients/{id}/events` lists for it. An id that names no client in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// AgentID Only events from this agent. An id that names no agent in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	AgentID *string `form:"agent_id,omitempty" json:"agent_id,omitempty"`
+
+	// Category Only events of this category. Any other value is refused with `invalid_value`.
+	Category *EventCategory `form:"category,omitempty" json:"category,omitempty"`
+
+	// OutcomeType Only events with this outcome type, compared ignoring case and surrounding spaces. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`.
+	OutcomeType *string `form:"outcome_type,omitempty" json:"outcome_type,omitempty"`
+
+	// Source Only events that arrived this way. Any other value is refused with `invalid_value`.
+	Source *EventSource `form:"source,omitempty" json:"source,omitempty"`
+
+	// ImportBatchID Only the events one CSV import wrote: the `import_batch_id` the import returned. With it, `from` and `to` are optional, both or neither. `as_of` is issued and returned but not applied, because an import's events appear together when it commits, and `total` is exact. An id that names no import in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ImportBatchID *string `form:"import_batch_id,omitempty" json:"import_batch_id,omitempty"`
+
+	// Sort Sort key. `timestamp` and `cost` default to descending; `agent_name`, `attributed_by` and `source` to ascending. `attributed_by` sorts events that carried a client key apart from those that did not. `cost` puts events without a cost last in both directions. An order other than `timestamp` descending needs `page` or a cursor issued in that order; without either it is refused with `required` on `page`.
+	Sort *ListEventsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Dir Sort direction. Absent means the sort key's default.
+	Dir *ListEventsParamsDir `form:"dir,omitempty" json:"dir,omitempty"`
+
+	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in the requested order at offset `(page − 1) × limit`, and fills `total` and `total_capped`. Without `page` nothing is counted, and `page`, `total` and `total_capped` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows. Under one `as_of`, a page's rows and their numbers stay the same on every request.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListEventsParamsSort defines parameters for ListEvents.
+type ListEventsParamsSort string
+
+// ListEventsParamsDir defines parameters for ListEvents.
+type ListEventsParamsDir string
+
+// ListEventArrivalsParams defines parameters for ListEventArrivals.
+type ListEventArrivalsParams struct {
+	// Since Start of the arrival window, inclusive: only events the API stored at or after this instant. At most 24 hours before the request; an earlier one is refused with `out_of_range`, and a feed further behind reloads without `since`. It must not be after the response's `as_of`, the one sent, the cursor's or the one issued, or it is refused with `out_of_range`; reload the feed without `since`. Equal to it, the window is empty. Without it, `count` and `count_capped` are `null`.
+	Since *time.Time `form:"since,omitempty" json:"since,omitempty"`
+
+	// AsOf The arrival limit: only events the API stored before this instant. Leave it out on a view's first request, and the response issues one; send that value on later requests to read the same events. A value later than the server can yet hold still is refused with `out_of_range`, and so is one before `1900-01-01T00:00:00Z`. With `cursor`, it must name the cursor's limit, or the cursor is refused with `invalid_value`; without it, the cursor's limit applies. A cursor whose limit is later than the server can yet hold still is refused with `invalid_value` too. That happens only after a rare delay inside the database; reload the view without the cursor. With `import_batch_id`, it is issued and returned but not applied, because an import's events appear together when it commits. Otherwise an event falls below the limit a second or two after the API stores it, and later while a long request, such as a large import, is still in progress. A read straight after an ingest may not include it yet.
+	AsOf *time.Time `form:"as_of,omitempty" json:"as_of,omitempty"`
+
+	// From Start of a half-open range, inclusive. Absent means unbounded. Must not be after `to`, or it is refused with `out_of_range` on `from`. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. When both bounds are sent, `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To End of a half-open range, exclusive. Absent means unbounded. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. When both bounds are sent, `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// ClientID Only events that count toward this client: those carrying its client key, compared ignoring case and surrounding spaces, and those carrying no key from an agent assigned to this client alone. They are the events `GET /v1/clients/{id}/events` lists for it. An id that names no client in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// AgentID Only events from this agent. An id that names no agent in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	AgentID *string `form:"agent_id,omitempty" json:"agent_id,omitempty"`
+
+	// Category Only events of this category. Any other value is refused with `invalid_value`.
+	Category *EventCategory `form:"category,omitempty" json:"category,omitempty"`
+
+	// OutcomeType Only events with this outcome type, compared ignoring case and surrounding spaces. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`.
+	OutcomeType *string `form:"outcome_type,omitempty" json:"outcome_type,omitempty"`
+
+	// Source Only events that arrived this way. Any other value is refused with `invalid_value`.
+	Source *EventSource `form:"source,omitempty" json:"source,omitempty"`
+
+	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetEventSummaryParams defines parameters for GetEventSummary.
+type GetEventSummaryParams struct {
+	// From Start of the period, inclusive. Must not be after `to`, or it is refused with `out_of_range` on `from`. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. When both bounds are sent, `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	From time.Time `form:"from" json:"from"`
+
+	// To End of the period, exclusive. Required: an open period would prorate to the current day, so the figure would change with the day it was read. Each sent bound must be at or after `1900-01-01T00:00:00Z` and before `10000-01-01T00:00:00Z`; otherwise it is refused with `out_of_range` on its own parameter. Digits below a microsecond are dropped before any check. When both bounds are sent, `to` may be at most 731 days after `from`; a longer period is refused with `out_of_range` on `from`.
+	To time.Time `form:"to" json:"to"`
+
+	// AsOf The arrival limit: only events the API stored before this instant. Leave it out on a view's first request, and the response issues one; send that value on later requests to read the same events. A value later than the server can yet hold still is refused with `out_of_range`, and so is one before `1900-01-01T00:00:00Z`. With `cursor`, it must name the cursor's limit, or the cursor is refused with `invalid_value`; without it, the cursor's limit applies. A cursor whose limit is later than the server can yet hold still is refused with `invalid_value` too. That happens only after a rare delay inside the database; reload the view without the cursor. With `import_batch_id`, it is issued and returned but not applied, because an import's events appear together when it commits. Otherwise an event falls below the limit a second or two after the API stores it, and later while a long request, such as a large import, is still in progress. A read straight after an ingest may not include it yet.
+	AsOf *time.Time `form:"as_of,omitempty" json:"as_of,omitempty"`
+
+	// ClientID Only events that count toward this client: those carrying its client key, compared ignoring case and surrounding spaces, and those carrying no key from an agent assigned to this client alone. They are the events `GET /v1/clients/{id}/events` lists for it. An id that names no client in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// AgentID Only events from this agent. An id that names no agent in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	AgentID *string `form:"agent_id,omitempty" json:"agent_id,omitempty"`
+
+	// Category Only events of this category. Any other value is refused with `invalid_value`.
+	Category *EventCategory `form:"category,omitempty" json:"category,omitempty"`
+
+	// OutcomeType Only events with this outcome type, compared ignoring case and surrounding spaces. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`.
+	OutcomeType *string `form:"outcome_type,omitempty" json:"outcome_type,omitempty"`
+
+	// Source Only events that arrived this way. Any other value is refused with `invalid_value`.
+	Source *EventSource `form:"source,omitempty" json:"source,omitempty"`
+
+	// ImportBatchID Only the events one CSV import wrote: the `import_batch_id` the import returned. `as_of` is then issued and returned but not applied, as on the list. An id that names no import in the workspace matches no event. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ImportBatchID *string `form:"import_batch_id,omitempty" json:"import_batch_id,omitempty"`
+}
+
+// ListImportsParams defines parameters for ListImports.
+type ListImportsParams struct {
+	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // ListOutcomeTypesParams defines parameters for ListOutcomeTypes.
@@ -1944,13 +2771,43 @@ type ListOutcomeTypesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListValueModelsParams defines parameters for ListValueModels.
-type ListValueModelsParams struct {
+// ListReportsParams defines parameters for ListReports.
+type ListReportsParams struct {
+	// ClientID Only reports on this client's calculations. An id that names no client in the workspace matches no report, so the list is empty. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// State Only reports in this state. Any other value is refused with `invalid_value`.
+	State *ReportState `form:"state,omitempty" json:"state,omitempty"`
+
 	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListValueModelsParams defines parameters for ListValueModels.
+type ListValueModelsParams struct {
+	// Q Only rows whose name holds this text, matched case-insensitively and anywhere in the name. Every character matches itself: `%`, `_` and `\` are not wildcards. 1 to 200 characters; a longer value is refused with `too_long`. An empty value, or one with leading or trailing whitespace, is refused with `invalid_format`. Combines with the filters by AND, and binds the cursor as a filter does.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Status Only models with this status. Any other value is refused with `invalid_value`.
+	Status *ValueModelStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// ClientID Only this client's models. An id that names no client in the workspace matches no model, so the list is empty. An id in any spelling but the RFC 9562 string form is refused with `invalid_format`.
+	ClientID *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
+	// Limit Page size, 1 to 200. A value outside the range is refused with `out_of_range`, never clamped.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor `next_cursor` from the previous page. Valid only with the filters and sort it was issued under; otherwise refused with `invalid_value`. An empty value is refused with `invalid_format`, like any empty query parameter. `limit` may change between pages.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Page Page number, from 1. Reads the list in its documented order at offset `(page − 1) × limit`, and fills `total` with the count of every row matching the filters and search. Without `page` nothing is counted, and `page` and `total` are `null`. Not with `cursor`: both together are refused with `mutually_exclusive` on `cursor`. The offset must not exceed 10,000,000; a larger one is refused with `out_of_range` on `page`. A page past the last returns no rows and the true `total`. The response's `next_cursor` continues the list after the page's last row, so a cursor walk can start from any page.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // ListValueTemplatesParams defines parameters for ListValueTemplates.

@@ -237,7 +237,7 @@ func TestFloatFieldsFindsNestedFields(t *testing.T) {
 // nullableMembers are the merge-patch members that can be cleared: the
 // spec's nullable patch members, each a Nullable.
 var nullableMembers = map[reflect.Type][]string{
-	reflect.TypeFor[ClientPatch]():       {"client_key", "notes", "renewal_date"},
+	reflect.TypeFor[ClientPatch]():       {"client_key", "notes", "renewal_date", "renewal_term"},
 	reflect.TypeFor[AgentPatch]():        {"framework", "version"},
 	reflect.TypeFor[CostLineItemPatch](): {"end_date"},
 	reflect.TypeFor[ReportPatch]():       {"note"},
@@ -245,14 +245,15 @@ var nullableMembers = map[reflect.Type][]string{
 }
 
 func TestPatchMembers(t *testing.T) {
-	nullable := reflect.TypeFor[Nullable[string]]()
+	// A Nullable of any value type, such as Nullable[RenewalTerm].
+	isNullable := func(t reflect.Type) bool { return strings.HasPrefix(t.Name(), "Nullable[") }
 	for typ, want := range nullableMembers {
 		var got []string
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
 			name, opts, _ := strings.Cut(f.Tag.Get("json"), ",")
 			switch {
-			case f.Type == nullable:
+			case isNullable(f.Type):
 				got = append(got, name)
 				// omitzero leaves out an absent member; omitempty would have
 				// no effect on a struct, so it is not there.
@@ -276,8 +277,8 @@ func TestPatchMembers(t *testing.T) {
 
 func TestTheOperationTable(t *testing.T) {
 	table := operationTable()
-	if len(table) != 48 {
-		t.Errorf("the table holds %d operations, want 48", len(table))
+	if len(table) != 58 {
+		t.Errorf("the table holds %d operations, want 58", len(table))
 	}
 	var ids, idempotent []string
 	for _, op := range table {
@@ -304,7 +305,12 @@ func TestTheOperationTable(t *testing.T) {
 	if !slices.IsSorted(ids) || len(slices.Compact(slices.Clone(ids))) != len(ids) {
 		t.Errorf("the ids are not sorted and unique: %v", ids)
 	}
-	for _, id := range []string{"getProblemType", "getSharedReport", "listApiKeys", "validateCalculation"} {
+	for _, id := range []string{"getWorkspace", "getOnboarding", "setOnboardingSkippedSteps"} {
+		if !slices.Contains(ids, id) {
+			t.Errorf("the table lacks %s, which the SDK calls", id)
+		}
+	}
+	for _, id := range []string{"getProblemType", "getSharedReport", "listApiKeys", "validateCalculation", "redeemInvite", "createWorkspace", "getInvite"} {
 		if slices.Contains(ids, id) {
 			t.Errorf("the table holds %s, which the SDK does not call", id)
 		}

@@ -86,8 +86,8 @@ describe("the pre-load step", { skip }, () => {
   const operations = skip ? [] : sdkOperations(spec);
   const out = skip ? {} : preload(spec, operations);
 
-  it("keeps the 48 operations an API key or no credential can call", () => {
-    assert.equal(operations.length, 48);
+  it("keeps the 58 operations an API key or no credential can call", () => {
+    assert.equal(operations.length, 58);
     for (const op of operations) {
       assert.ok(
         ["KeyOnly", "KeyOrSession", "Public"].includes(op.access),
@@ -95,9 +95,22 @@ describe("the pre-load step", { skip }, () => {
       );
     }
     assert.ok(!operations.some((op) => op.id === "getProblemType"));
+    for (const id of ["redeemInvite", "createWorkspace", "getInvite"]) {
+      assert.ok(!operations.some((op) => op.id === id), id);
+    }
+    for (const id of [
+      "getWorkspace",
+      "getOnboarding",
+      "setOnboardingSkippedSteps",
+    ]) {
+      assert.ok(
+        operations.some((op) => op.id === id),
+        id,
+      );
+    }
   });
 
-  it("generates 93 schema types, ClientRecord among them and no scalar", () => {
+  it("generates 114 schema types, ClientRecord among them and no scalar", () => {
     const config = parse(
       readFileSync(join(packageDir, "oapi-codegen.yaml"), "utf8"),
     );
@@ -105,8 +118,21 @@ describe("the pre-load step", { skip }, () => {
     const names = Object.keys(out.components.schemas).filter(
       (n) => !excluded.includes(n),
     );
-    assert.equal(names.length, 93);
+    assert.equal(names.length, 114);
     assert.ok(names.includes("ClientRecord"));
+    for (const name of [
+      "Workspace",
+      "Onboarding",
+      "OnboardingStepProgress",
+      "OnboardingStep",
+      "OnboardingSkippedStepsSet",
+    ]) {
+      assert.ok(names.includes(name), name);
+    }
+    // Reached only by the operations the SDK leaves out.
+    for (const name of ["InviteRedemption", "WorkspaceCreate"]) {
+      assert.ok(!names.includes(name), name);
+    }
     assert.ok(!names.includes("Client"));
     for (const scalar of SCALARS) assert.ok(!names.includes(scalar), scalar);
     const types = committed()[OUTPUTS.types];
@@ -198,6 +224,22 @@ describe("the pre-load step", { skip }, () => {
       [",", ";", "\t"],
     );
   });
+
+  it("makes the response's open ImportDelimiter a string, after collapsing its anyOf", () => {
+    const { ImportDelimiter, AppliedImportMapping } = out.components.schemas;
+    assert.equal(ImportDelimiter.type, "string");
+    assert.equal(ImportDelimiter.enum, undefined);
+    assert.equal(ImportDelimiter["x-enum-varnames"], undefined);
+    // The open set's anyOf is gone, and the member names the component.
+    const member = AppliedImportMapping.properties.delimiter;
+    assert.equal(member.$ref, "#/components/schemas/ImportDelimiter");
+    assert.equal(member.anyOf, undefined);
+    assert.deepEqual(spec.components.schemas.ImportDelimiter.enum, [
+      ",",
+      ";",
+      "\t",
+    ]);
+  });
 });
 
 describe("the script refuses", { skip }, () => {
@@ -241,6 +283,22 @@ describe("the script refuses", { skip }, () => {
     assert.throws(
       () => sdkOperations(idem),
       /listClients has no boolean x-idempotent/,
+    );
+  });
+
+  it("an operation under a policy it neither calls nor leaves out, and names both", () => {
+    // Skipping the operation would fail this as surely as taking it in.
+    const spec = freshSpec();
+    spec.paths["/v1/widgets"] = {
+      get: {
+        ...structuredClone(spec.paths["/v1/agents"].get),
+        operationId: "listWidgets",
+        "x-access": { policy: "PartnerToken" },
+      },
+    };
+    assert.throws(
+      () => sdkOperations(spec),
+      /listWidgets has the x-access policy PartnerToken/,
     );
   });
 
@@ -300,6 +358,44 @@ describe("the script refuses", { skip }, () => {
         "string",
       );
     }
+  });
+
+  it("an ImportDelimiter set added to or removed from, but not a reorder", () => {
+    const withDelimiters = (list) => {
+      const spec = freshSpec();
+      spec.components.schemas.ImportDelimiter.enum = list;
+      return () => preload(spec, sdkOperations(spec));
+    };
+    for (const list of [
+      [",", ";", "\t", "|"],
+      [",", ";"],
+      [",", ";", ";", "\t"],
+    ]) {
+      assert.throws(
+        withDelimiters(list),
+        /ImportDelimiter lists/,
+        JSON.stringify(list),
+      );
+    }
+    const out = withDelimiters(["\t", ",", ";"])();
+    assert.equal(out.components.schemas.ImportDelimiter.type, "string");
+  });
+
+  it("an Overlay entry for an enum member that is not a Nullable of the enum's type", () => {
+    // The committed Overlay declares ClientPatch.renewal_term as
+    // Nullable[RenewalTerm], the enum's own type.
+    const spec = freshSpec();
+    assert.doesNotThrow(() => checkOverlay(spec, sdkOperations(spec), overlay));
+    const changed = structuredClone(overlay);
+    const entry = changed.actions.find(
+      (a) =>
+        a.target === "$.components.schemas.ClientPatch.properties.renewal_term",
+    );
+    entry.update["x-go-type"] = "Nullable[string]";
+    assert.throws(
+      () => checkOverlay(spec, sdkOperations(spec), changed),
+      /ClientPatch\.properties\.renewal_term the type Nullable\[string\], but its value is RenewalTerm/,
+    );
   });
 
   it("an Overlay entry tagged other than exactly omitzero", () => {

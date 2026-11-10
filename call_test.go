@@ -339,8 +339,8 @@ var idempotentOps = []string{"commitImport", "createAgent", "createCalculation",
 
 func TestEveryOperationIsRetriedOnlyWhenEligible(t *testing.T) {
 	table := operationTable()
-	if len(table) != 48 {
-		t.Fatalf("the table holds %d operations, want 48", len(table))
+	if len(table) != 58 {
+		t.Fatalf("the table holds %d operations, want 58", len(table))
 	}
 	for i := range table {
 		op := &table[i]

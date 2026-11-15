@@ -116,6 +116,7 @@ DisclosureKind
 DisclosureKind.Valid
 DisclosureKindEmpty
 DisclosureKindKeyUnset
+DisclosureKindNoValueModel
 DisclosureKindPartial
 DisclosureKindPrecedes
 DisclosureKindTokenValued
